@@ -192,12 +192,13 @@ class InterviewAgent:
                 return "\n" + self.prompts.CHILDREN_QUESTION
 
         # 配偶者情報を収集中
-        # TODO: 詳細な解析が必要（後で実装）
-        # 簡易実装: 名前のみ収集
-        spouse_name = user_input.strip().split("\n")[0]
+        # LLMで構造化データ抽出
+        spouse_info = self._extract_person_info(user_input, "配偶者")
         spouse = Person(
-            name=spouse_name,
-            is_alive=True  # デフォルトは存命
+            name=spouse_info.get("name", "配偶者"),
+            is_alive=spouse_info.get("is_alive", True),
+            birth_date=spouse_info.get("birth_date"),
+            gender=spouse_info.get("gender", Gender.UNKNOWN)
         )
         self.spouses.append(spouse)
 
@@ -229,16 +230,17 @@ class InterviewAgent:
                 return "申し訳ございません。数字でご入力ください。\n" + self.prompts.CHILDREN_COUNT
 
         # 子の情報を収集中
-        # TODO: 詳細な解析が必要（後で実装）
-        # 簡易実装
         collected = self.collected_data["children_collected"]
         total = self.collected_data["children_count"]
 
-        # 名前のみ収集
-        child_name = user_input.strip().split("\n")[0]
+        # LLMで構造化データ抽出
+        child_info = self._extract_person_info(user_input, f"子{collected + 1}")
         child = Person(
-            name=child_name,
-            is_alive=True  # デフォルトは存命
+            name=child_info.get("name", f"子{collected + 1}"),
+            is_alive=child_info.get("is_alive", True),
+            birth_date=child_info.get("birth_date"),
+            death_date=child_info.get("death_date"),
+            gender=child_info.get("gender", Gender.UNKNOWN)
         )
         self.children.append(child)
 
@@ -263,10 +265,43 @@ class InterviewAgent:
                 self.state = InterviewState.SIBLINGS_INFO
                 return "\n" + self.prompts.SIBLINGS_QUESTION
 
-            return self.prompts.PARENT_INFO_TEMPLATE
+            # 親の人数を聞く
+            self.collected_data["parents"] = []
+            return "存命の直系尊属（父母、祖父母など）は何人いますか？"
 
-        # 親の情報を収集（簡易実装）
-        # 次の状態へ
+        # 親の情報を収集
+        if "parent_count" not in self.collected_data:
+            try:
+                count = int(user_input.strip())
+                self.collected_data["parent_count"] = count
+                self.collected_data["parent_collected"] = 0
+
+                if count == 0:
+                    self.state = InterviewState.SIBLINGS_INFO
+                    return "\n" + self.prompts.SIBLINGS_QUESTION
+
+                return f"1人目の直系尊属について教えてください。\n氏名、続柄（父、母、祖父など）、生年月日などを入力してください。"
+            except ValueError:
+                return "数字で入力してください。存命の直系尊属は何人いますか？"
+
+        # 親の詳細情報を収集
+        collected = self.collected_data["parent_collected"]
+        count = self.collected_data["parent_count"]
+
+        parent_info = self._extract_person_info(user_input, f"直系尊属{collected + 1}")
+        parent = Person(
+            name=parent_info.get("name", f"直系尊属{collected + 1}"),
+            is_alive=True,  # 存命の直系尊属のみ
+            birth_date=parent_info.get("birth_date"),
+            gender=parent_info.get("gender", Gender.UNKNOWN)
+        )
+        self.collected_data["parents"].append(parent)
+        self.collected_data["parent_collected"] = collected + 1
+
+        if collected + 1 < count:
+            return f"{collected + 2}人目の直系尊属について教えてください。\n氏名、続柄、生年月日などを入力してください。"
+
+        # 全員収集完了
         self.state = InterviewState.SIBLINGS_INFO
         return "\n" + self.prompts.SIBLINGS_QUESTION
 
@@ -276,12 +311,53 @@ class InterviewAgent:
             has_siblings = self._parse_yes_no(user_input)
             self.collected_data["has_siblings"] = has_siblings
 
-            # 次の状態へ（特殊ケース）
-            self.state = InterviewState.SPECIAL_CASES
-            self.collected_data["special_case_step"] = "renunciation"
-            return "\n" + self.prompts.RENUNCIATION_QUESTION
+            if not has_siblings:
+                # 次の状態へ（特殊ケース）
+                self.state = InterviewState.SPECIAL_CASES
+                self.collected_data["special_case_step"] = "renunciation"
+                return "\n" + self.prompts.RENUNCIATION_QUESTION
 
-        return "エラーが発生しました。"
+            # 兄弟姉妹の人数を聞く
+            self.collected_data["siblings"] = []
+            return "存命の兄弟姉妹は何人いますか？"
+
+        # 兄弟姉妹の情報を収集
+        if "sibling_count" not in self.collected_data:
+            try:
+                count = int(user_input.strip())
+                self.collected_data["sibling_count"] = count
+                self.collected_data["sibling_collected"] = 0
+
+                if count == 0:
+                    self.state = InterviewState.SPECIAL_CASES
+                    self.collected_data["special_case_step"] = "renunciation"
+                    return "\n" + self.prompts.RENUNCIATION_QUESTION
+
+                return f"1人目の兄弟姉妹について教えてください。\n氏名、続柄（兄、姉、弟、妹など）、血縁タイプ（全血・半血）、生年月日などを入力してください。"
+            except ValueError:
+                return "数字で入力してください。存命の兄弟姉妹は何人いますか？"
+
+        # 兄弟姉妹の詳細情報を収集
+        collected = self.collected_data["sibling_collected"]
+        count = self.collected_data["sibling_count"]
+
+        sibling_info = self._extract_person_info(user_input, f"兄弟姉妹{collected + 1}")
+        sibling = Person(
+            name=sibling_info.get("name", f"兄弟姉妹{collected + 1}"),
+            is_alive=True,  # 存命の兄弟姉妹のみ
+            birth_date=sibling_info.get("birth_date"),
+            gender=sibling_info.get("gender", Gender.UNKNOWN)
+        )
+        self.collected_data["siblings"].append(sibling)
+        self.collected_data["sibling_collected"] = collected + 1
+
+        if collected + 1 < count:
+            return f"{collected + 2}人目の兄弟姉妹について教えてください。\n氏名、続柄、血縁タイプ、生年月日などを入力してください。"
+
+        # 全員収集完了
+        self.state = InterviewState.SPECIAL_CASES
+        self.collected_data["special_case_step"] = "renunciation"
+        return "\n" + self.prompts.RENUNCIATION_QUESTION
 
     def _process_special_cases(self, user_input: str) -> str:
         """特殊ケース（相続放棄等）を処理"""
@@ -322,6 +398,106 @@ class InterviewAgent:
         if text in ["はい", "yes", "y", "有", "あり", "います", "いる"]:
             return True
         return False
+
+    def _extract_person_info(self, user_input: str, role: str) -> Dict[str, Any]:
+        """
+        ユーザー入力から人物情報を抽出
+
+        Args:
+            user_input: ユーザーの入力テキスト
+            role: 役割（配偶者、子1、など）
+
+        Returns:
+            抽出した人物情報の辞書
+        """
+        # LLMを使って構造化データ抽出
+        extraction_prompt = f"""
+以下のテキストから{role}の情報を抽出してください。
+抽出する情報:
+- 氏名（name）
+- 生存状態（is_alive: true/false）
+- 生年月日（birth_date: YYYY-MM-DD形式、不明な場合はnull）
+- 死亡日（death_date: YYYY-MM-DD形式、存命または不明な場合はnull）
+- 性別（gender: male/female/other/unknown）
+
+テキスト: {user_input}
+
+以下のJSON形式で回答してください:
+{{"name": "氏名", "is_alive": true, "birth_date": "YYYY-MM-DD", "death_date": null, "gender": "unknown"}}
+"""
+
+        try:
+            messages = [
+                {"role": "system", "content": "あなたは相続情報を正確に抽出するアシスタントです。"},
+                {"role": "user", "content": extraction_prompt}
+            ]
+
+            response = self.client.chat(messages, temperature=0.1)
+
+            # JSON部分を抽出
+            import json
+            json_match = re.search(r'\{[^}]+\}', response)
+            if json_match:
+                extracted: Dict[str, Any] = json.loads(json_match.group())
+
+                # 日付をdateオブジェクトに変換
+                if extracted.get("birth_date"):
+                    extracted["birth_date"] = self._parse_date(extracted["birth_date"])
+                if extracted.get("death_date"):
+                    extracted["death_date"] = self._parse_date(extracted["death_date"])
+
+                # 性別をGenderに変換
+                if extracted.get("gender"):
+                    gender_map = {
+                        "male": Gender.MALE,
+                        "female": Gender.FEMALE,
+                        "other": Gender.OTHER,
+                        "unknown": Gender.UNKNOWN
+                    }
+                    extracted["gender"] = gender_map.get(extracted["gender"].lower(), Gender.UNKNOWN)
+
+                return extracted
+
+        except Exception as e:
+            self.logger.warning(f"Failed to extract person info with LLM: {e}")
+
+        # フォールバック: 簡易パース
+        return self._simple_parse_person_info(user_input, role)
+
+    def _simple_parse_person_info(self, user_input: str, role: str) -> Dict[str, Any]:
+        """
+        簡易的な人物情報パース（フォールバック用）
+
+        Args:
+            user_input: ユーザー入力
+            role: 役割
+
+        Returns:
+            抽出した情報
+        """
+        lines = user_input.strip().split("\n")
+        name = lines[0] if lines else role
+
+        # 生存状態の推測
+        is_alive = "死亡" not in user_input and "亡くなっ" not in user_input
+
+        # 日付の抽出
+        birth_date = None
+        death_date = None
+        for line in lines:
+            if "生年月日" in line or "生まれ" in line:
+                birth_date = self._parse_date(line)
+            if "死亡" in line or "亡くなっ" in line:
+                death_date = self._parse_date(line)
+                is_alive = False
+
+        return {
+            "name": name,
+            "is_alive": is_alive,
+            "birth_date": birth_date,
+            "death_date": death_date,
+            "gender": Gender.UNKNOWN
+        }
 
     def _parse_date(self, text: str) -> Optional[date]:
         """日付文字列を解析"""

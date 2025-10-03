@@ -3,6 +3,7 @@
 各サブコマンドの実装を提供します。
 """
 import sys
+import json
 from pathlib import Path
 from typing import Optional, Any, List, Dict
 from argparse import Namespace
@@ -16,6 +17,12 @@ from src.services.inheritance_calculator import InheritanceCalculator
 from src.models.person import Person
 from src.models.relationship import BloodType
 from src.models.inheritance import InheritanceResult
+from src.utils.exceptions import (
+    InheritanceCalculatorError,
+    ValidationError,
+    DatabaseException,
+    ServiceException
+)
 
 console = Console()
 
@@ -46,8 +53,21 @@ def calculate_command(args: Namespace) -> int:
         else:
             # 対話モード
             return calculate_interactive()
-    except Exception as e:
+    except ValidationError as e:
+        display_error(f"入力値エラー: {str(e)}")
+        return 1
+    except FileNotFoundError as e:
+        display_error(f"ファイルが見つかりません: {str(e)}")
+        return 1
+    except PermissionError as e:
+        display_error(f"ファイルへのアクセス権限がありません: {str(e)}")
+        return 1
+    except InheritanceCalculatorError as e:
         display_error(f"計算エラー: {str(e)}")
+        return 1
+    except Exception as e:
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -244,8 +264,18 @@ def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, sav
     except FileNotFoundError:
         display_error(f"ファイルが見つかりません: {input_file}")
         return 1
+    except PermissionError as e:
+        display_error(f"ファイルへのアクセス権限がありません: {str(e)}")
+        return 1
+    except ValidationError as e:
+        display_error(f"CSV形式エラー: {str(e)}")
+        return 1
+    except InheritanceCalculatorError as e:
+        display_error(f"計算エラー: {str(e)}")
+        return 1
     except Exception as e:
-        display_error(f"CSVファイルの処理エラー: {str(e)}")
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -263,8 +293,15 @@ def calculate_interactive() -> int:
     except KeyboardInterrupt:
         console.print("\n[yellow]計算を中断しました。[/yellow]")
         return 130
+    except ValidationError as e:
+        display_error(f"入力値エラー: {str(e)}")
+        return 1
+    except InheritanceCalculatorError as e:
+        display_error(f"計算エラー: {str(e)}")
+        return 1
     except Exception as e:
-        display_error(f"エラーが発生しました: {str(e)}")
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -373,9 +410,13 @@ def save_to_neo4j(
 
             display_info("✅ Neo4jに保存しました")
 
-    except Exception as e:
+    except DatabaseException as e:
         display_error(f"Neo4j保存エラー: {str(e)}")
         display_info("詳細は.envファイルの設定を確認してください")
+    except Exception as e:
+        display_error(f"予期しないエラー: {str(e)}")
+        display_info("詳細は.envファイルの設定を確認してください")
+        console.print_exception(show_locals=True)
 
 
 def validate_command(args: Namespace) -> int:
@@ -415,11 +456,18 @@ def validate_command(args: Namespace) -> int:
     except FileNotFoundError:
         display_error(f"ファイルが見つかりません: {args.input_file}")
         return 1
+    except PermissionError as e:
+        display_error(f"ファイルへのアクセス権限がありません: {str(e)}")
+        return 1
     except json.JSONDecodeError as e:
         display_error(f"JSONファイルの解析エラー: {str(e)}")
         return 1
-    except Exception as e:
+    except ValidationError as e:
         display_error(f"検証エラー: {str(e)}")
+        return 1
+    except Exception as e:
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -445,8 +493,15 @@ def template_command(args: Namespace) -> int:
 
         return 0
 
+    except PermissionError as e:
+        display_error(f"ファイルへの書き込み権限がありません: {str(e)}")
+        return 1
+    except IOError as e:
+        display_error(f"ファイル書き込みエラー: {str(e)}")
+        return 1
     except Exception as e:
-        display_error(f"テンプレート作成エラー: {str(e)}")
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -476,8 +531,15 @@ def demo_command(args: Namespace) -> int:
     except KeyboardInterrupt:
         console.print("\n[yellow]デモを中断しました。[/yellow]")
         return 130
+    except ModuleNotFoundError as e:
+        display_error(f"デモモジュールが見つかりません: {str(e)}")
+        return 1
+    except InheritanceCalculatorError as e:
+        display_error(f"計算エラー: {str(e)}")
+        return 1
     except Exception as e:
-        display_error(f"デモ実行エラー: {str(e)}")
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -610,10 +672,15 @@ def tree_command(args: Namespace) -> int:
     except FileNotFoundError:
         display_error(f"ファイルが見つかりません: {args.input_file}")
         return 1
+    except PermissionError as e:
+        display_error(f"ファイルへのアクセス権限がありません: {str(e)}")
+        return 1
+    except ValidationError as e:
+        display_error(f"入力データエラー: {str(e)}")
+        return 1
     except Exception as e:
-        display_error(f"家系図生成エラー: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
 
 
@@ -743,8 +810,17 @@ def interview_command(args: Namespace) -> int:
     except KeyboardInterrupt:
         console.print("\n\n[yellow]インタビューを中断しました。[/yellow]")
         return 1
+    except ServiceException as e:
+        display_error(f"AIサービスエラー: {str(e)}")
+        display_info("Ollamaサービスが起動しているか確認してください")
+        return 1
+    except ValidationError as e:
+        display_error(f"入力値エラー: {str(e)}")
+        return 1
+    except InheritanceCalculatorError as e:
+        display_error(f"計算エラー: {str(e)}")
+        return 1
     except Exception as e:
-        display_error(f"エラーが発生しました: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        display_error(f"予期しないエラー: {str(e)}")
+        console.print_exception(show_locals=True)
         return 1
