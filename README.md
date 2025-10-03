@@ -324,3 +324,4 @@ MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してくださ�
 **開発状況**: Phase 5 (テストとドキュメント) 完了
 **最終更新**: 2025年10月3日
 **開発**: Claude Code AI Assistant
+# inheritance-calculator
