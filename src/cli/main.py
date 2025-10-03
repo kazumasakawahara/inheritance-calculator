@@ -60,6 +60,11 @@ def create_parser() -> argparse.ArgumentParser:
         type=Path,
         help='出力ファイルのパス'
     )
+    calculate_parser.add_argument(
+        '--save-to-neo4j',
+        action='store_true',
+        help='結果をNeo4jに保存'
+    )
     calculate_parser.set_defaults(func=commands.calculate_command)
 
     # validate コマンド
@@ -131,6 +136,11 @@ def create_parser() -> argparse.ArgumentParser:
         dest='output',
         type=Path,
         help='計算結果の出力ファイルパス（.json, .md, .pdf）'
+    )
+    interview_parser.add_argument(
+        '--save-to-neo4j',
+        action='store_true',
+        help='結果をNeo4jに保存'
     )
     interview_parser.set_defaults(func=commands.interview_command)
 

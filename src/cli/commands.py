@@ -27,13 +27,15 @@ def calculate_command(args: Namespace) -> int:
         終了コード（0: 成功、1以上: エラー）
     """
     try:
+        save_neo4j = getattr(args, 'save_to_neo4j', False)
+
         if args.input_file:
             # ファイル拡張子で形式を判定
             file_ext = args.input_file.suffix.lower()
             if file_ext == '.csv':
-                return calculate_from_csv(args.input_file, args.output)
+                return calculate_from_csv(args.input_file, args.output, save_neo4j)
             elif file_ext == '.json':
-                return calculate_from_file(args.input_file, args.output)
+                return calculate_from_file(args.input_file, args.output, save_neo4j)
             else:
                 display_error(f"サポートされていないファイル形式です: {file_ext}")
                 display_info("対応形式: .json, .csv")
@@ -46,12 +48,13 @@ def calculate_command(args: Namespace) -> int:
         return 1
 
 
-def calculate_from_file(input_file: Path, output_file: Optional[Path] = None) -> int:
+def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, save_neo4j: bool = False) -> int:
     """ファイルから相続計算を実行
 
     Args:
         input_file: 入力JSONファイルパス
         output_file: 出力ファイルパス（オプション）
+        save_neo4j: Neo4jに保存するかどうか
 
     Returns:
         終了コード
@@ -151,6 +154,21 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None) ->
             export_result(result, output_file)
             display_info(f"結果を {output_file} に出力しました。")
 
+        # Neo4jに保存
+        if save_neo4j:
+            save_to_neo4j(
+                decedent=decedent,
+                spouses=spouses,
+                children=children,
+                parents=parents,
+                siblings=siblings,
+                renounced=renounced,
+                disqualified=[],
+                disinherited=[],
+                sibling_blood_types=sibling_blood_types if sibling_blood_types else {},
+                result=result
+            )
+
         return 0
 
     except FileNotFoundError:
@@ -167,12 +185,13 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None) ->
         return 1
 
 
-def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None) -> int:
+def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, save_neo4j: bool = False) -> int:
     """CSVファイルから相続計算を実行
 
     Args:
         input_file: 入力CSVファイルパス
         output_file: 出力ファイルパス（オプション）
+        save_neo4j: Neo4jに保存するかどうか
 
     Returns:
         終了コード
@@ -201,6 +220,21 @@ def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None) -> 
         if output_file:
             export_result(result, output_file)
             display_info(f"結果を {output_file} に出力しました。")
+
+        # Neo4jに保存
+        if save_neo4j:
+            save_to_neo4j(
+                decedent=decedent,
+                spouses=spouses,
+                children=children,
+                parents=parents,
+                siblings=siblings,
+                renounced=renounced,
+                disqualified=[],
+                disinherited=[],
+                sibling_blood_types=sibling_blood_types if sibling_blood_types else {},
+                result=result
+            )
 
         return 0
 
@@ -277,6 +311,68 @@ def export_result(result: Any, output_file: Path) -> None:
 
     else:
         raise ValueError(f"サポートされていない出力形式です: {file_ext}")
+
+
+def save_to_neo4j(
+    decedent,
+    spouses,
+    children,
+    parents,
+    siblings,
+    renounced,
+    disqualified,
+    disinherited,
+    sibling_blood_types,
+    result
+) -> None:
+    """相続ケースをNeo4jに保存
+
+    Args:
+        decedent: 被相続人
+        spouses: 配偶者リスト
+        children: 子リスト
+        parents: 直系尊属リスト
+        siblings: 兄弟姉妹リスト
+        renounced: 相続放棄者リスト
+        disqualified: 相続欠格者リスト
+        disinherited: 相続廃除者リスト
+        sibling_blood_types: 兄弟姉妹の血縁タイプ
+        result: 計算結果
+    """
+    from src.database.neo4j_client import Neo4jClient
+    from src.services.neo4j_service import Neo4jService
+
+    try:
+        with Neo4jClient() as client:
+            # 接続確認
+            if not client.health_check():
+                display_error("Neo4jサービスに接続できません")
+                display_info("Neo4jが起動していることを確認してください")
+                return
+
+            # 制約とインデックスを作成
+            client.create_constraints()
+
+            # データを保存
+            service = Neo4jService(client)
+            service.save_inheritance_case(
+                decedent=decedent,
+                spouses=spouses,
+                children=children,
+                parents=parents,
+                siblings=siblings,
+                renounced=renounced,
+                disqualified=disqualified,
+                disinherited=disinherited,
+                sibling_blood_types=sibling_blood_types,
+                result=result
+            )
+
+            display_info("✅ Neo4jに保存しました")
+
+    except Exception as e:
+        display_error(f"Neo4j保存エラー: {str(e)}")
+        display_info("詳細は.envファイルの設定を確認してください")
 
 
 def validate_command(args: Namespace) -> int:
@@ -614,6 +710,21 @@ def interview_command(args: Namespace) -> int:
                     return 1
 
                 console.print(f"[green]✓ 保存完了: {output_path}[/green]")
+
+            # Neo4jに保存
+            if getattr(args, 'save_to_neo4j', False):
+                save_to_neo4j(
+                    decedent=collected_data["decedent"],
+                    spouses=collected_data["spouses"],
+                    children=collected_data["children"],
+                    parents=collected_data["parents"],
+                    siblings=collected_data["siblings"],
+                    renounced=collected_data["renounced"],
+                    disqualified=collected_data["disqualified"],
+                    disinherited=collected_data["disinherited"],
+                    sibling_blood_types=collected_data["sibling_blood_types"],
+                    result=result
+                )
 
             return 0
         else:

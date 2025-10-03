@@ -44,6 +44,25 @@ cd inheritance-calculator
 uv sync
 ```
 
+### Neo4jのセットアップ（オプション）
+
+データをグラフデータベースに永続化したい場合は、Neo4jをセットアップしてください。
+
+```bash
+# Neo4j Desktopをインストール（推奨）
+# https://neo4j.com/download/ からダウンロード
+
+# または、Homebrewでインストール（Macの場合）
+brew install neo4j
+
+# データベースの作成
+# Neo4j Desktopで新しいデータベース「inheritance-db」を作成
+# パスワードを設定（例: inheritance123）
+
+# .envファイルの設定
+# NEO4J_PASSWORD=設定したパスワード に変更
+```
+
 ### 基本的な使い方
 
 #### 0. AI対話型インタビュー（推奨）⭐
@@ -62,6 +81,10 @@ uv run python -m src.cli.main interview
 uv run python -m src.cli.main interview -o result.json  # JSON形式で保存
 uv run python -m src.cli.main interview -o report.md   # Markdown形式で保存
 uv run python -m src.cli.main interview -o report.pdf  # PDF形式で保存
+
+# Neo4jに保存する場合（グラフデータベースで永続化）
+uv run python -m src.cli.main interview --save-to-neo4j
+uv run python -m src.cli.main interview -o result.json --save-to-neo4j  # ファイルとNeo4j両方
 ```
 
 **必須**: Ollamaがインストールされ、`gpt-oss:20b`モデルがpull済みであることが必要です。
@@ -97,6 +120,9 @@ uv run python -m src.cli.main calculate -i examples/sample_csv_basic.csv
 uv run python -m src.cli.main calculate -i examples/sample_input.json -o result.json  # JSON形式
 uv run python -m src.cli.main calculate -i examples/sample_csv_basic.csv -o report.md  # Markdown形式
 uv run python -m src.cli.main calculate -i examples/sample_csv_basic.csv -o report.pdf  # PDF形式
+
+# Neo4jに保存（グラフデータベースで永続化）
+uv run python -m src.cli.main calculate -i examples/sample_input.json --save-to-neo4j
 ```
 
 #### 3. CSVテンプレートの作成
@@ -352,7 +378,13 @@ MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してくださ�
 
 ---
 
-**バージョン**: 1.0.0
-**開発状況**: Phase 6 (最適化とデプロイ準備) 完了
+**バージョン**: 1.1.0
+**開発状況**: Phase 7 (Neo4jデータ永続化機能) 完了
 **最終更新**: 2025年10月3日
 **開発**: Claude Code AI Assistant
+
+### 新機能 (v1.1.0)
+- ✅ Neo4jグラフデータベース統合
+- ✅ 相続ケースのグラフ構造での永続化
+- ✅ Cypherクエリによる高度な相続人検索
+- ✅ `--save-to-neo4j` オプションでCLIから直接保存可能
