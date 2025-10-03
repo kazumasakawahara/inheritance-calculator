@@ -48,6 +48,13 @@ class Heir(BaseModel):
         default=None, description="被代襲者（代襲相続の場合）"
     )
     generation: int = Field(default=1, description="代襲世代数（1=直接相続人）")
+    is_retransfer: bool = Field(default=False, description="再転相続人か")
+    retransfer_from: Optional[Person] = Field(
+        default=None, description="再転相続元の相続人（遺産分割前に死亡した相続人）"
+    )
+    original_share: Optional[Fraction] = Field(
+        default=None, description="再転相続前の元の相続分"
+    )
 
     @field_validator('share_percentage', mode='before')
     @classmethod

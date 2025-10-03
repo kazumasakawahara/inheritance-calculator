@@ -68,8 +68,13 @@ class HeirValidator(BaseService[Person]):
         if person.id == self.decedent.id:
             return False
 
-        # 死亡している場合は相続人になれない（代襲相続を除く）
+        # 死亡している場合の判定
         if not person.is_alive:
+            # 遺産分割前に死亡した場合は再転相続の対象として一旦有効とする
+            # （後で再転相続処理で実際の相続人に置き換える）
+            if person.died_before_division:
+                return True
+            # それ以外の死亡者は相続人になれない（代襲相続を除く）
             return False
 
         # 相続放棄している場合は相続人になれない

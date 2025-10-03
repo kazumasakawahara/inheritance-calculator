@@ -30,6 +30,10 @@ class Person(Neo4jNode):
     is_decedent: bool = Field(default=False, description="被相続人フラグ")
     birth_date: Optional[date] = Field(default=None, description="生年月日")
     gender: Gender = Field(default=Gender.UNKNOWN, description="性別")
+    died_before_division: bool = Field(
+        default=False,
+        description="遺産分割前に死亡したか（再転相続の対象）"
+    )
 
     @field_validator('death_date')
     @classmethod
