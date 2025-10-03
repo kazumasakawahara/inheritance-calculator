@@ -1,0 +1,5 @@
+role,name,is_alive,birth_date,death_date,blood_type,is_renounced
+decedent,山田太郎,いいえ,1950-01-01,2025-06-15,,いいえ
+spouse,山田花子,はい,1955-03-10,,,いいえ
+child,山田一郎,はい,1980-05-20,,,いいえ
+child,山田二郎,はい,1983-11-12,,,いいえ

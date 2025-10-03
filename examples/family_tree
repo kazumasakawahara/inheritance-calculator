@@ -1,0 +1,20 @@
+// 家系図
+digraph {
+	rankdir=TB
+	node [shape=box style="rounded,filled"]
+	"538f84ef-d0ef-43e1-9cf1-60e91f9293bf" [label="山田太郎
+【被相続人】
+故人, 享年75歳" fillcolor=lightcoral fontname=Arial]
+	"b373df1b-86a9-4161-b5f8-5051aaaa9397" [label="山田花子
+存命, 70歳
+相続分: 1/2 (50.00%)" fillcolor=lightblue fontname=Arial]
+	"538f84ef-d0ef-43e1-9cf1-60e91f9293bf" -> "b373df1b-86a9-4161-b5f8-5051aaaa9397" [label="配偶者" color=red dir=none fontname=Arial]
+	"20c54c82-a755-4754-8166-c10cb0dea224" [label="山田一郎
+存命, 45歳
+相続分: 1/4 (25.00%)" fillcolor=lightgreen fontname=Arial]
+	"538f84ef-d0ef-43e1-9cf1-60e91f9293bf" -> "20c54c82-a755-4754-8166-c10cb0dea224" [label="子" fontname=Arial]
+	"a8a0afbb-e805-44ba-ad0b-571e51c6fbfc" [label="山田二郎
+存命, 41歳
+相続分: 1/4 (25.00%)" fillcolor=lightgreen fontname=Arial]
+	"538f84ef-d0ef-43e1-9cf1-60e91f9293bf" -> "a8a0afbb-e805-44ba-ad0b-571e51c6fbfc" [label="子" fontname=Arial]
+}

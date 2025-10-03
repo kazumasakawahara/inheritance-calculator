@@ -1,0 +1,26 @@
+```mermaid
+graph TB
+
+    classDef decedent fill:#f9a,stroke:#333,stroke-width:4px
+    classDef spouse fill:#9cf,stroke:#333,stroke-width:2px
+    classDef child fill:#9f9,stroke:#333,stroke-width:2px
+    classDef parent fill:#ddf,stroke:#333,stroke-width:2px
+    classDef sibling fill:#ddd,stroke:#333,stroke-width:2px
+    classDef substitute fill:#ffa,stroke:#333,stroke-width:2px
+
+    D34d1b959-fe22-455f-9b99-fbbdca43af25["山田太郎<br>【被相続人】<br>享年75歳"]
+    class D34d1b959-fe22-455f-9b99-fbbdca43af25 decedent
+
+    S13f03c91-f283-4a3e-b986-5010c6f8cec1["山田花子<br>70歳<br>50.0%"]
+    class S13f03c91-f283-4a3e-b986-5010c6f8cec1 spouse
+    D34d1b959-fe22-455f-9b99-fbbdca43af25 <-.配偶者.-> S13f03c91-f283-4a3e-b986-5010c6f8cec1
+
+    C301b3329-e267-4104-8a71-75bbb199f782["山田一郎<br>45歳<br>25.0%"]
+    class C301b3329-e267-4104-8a71-75bbb199f782 child
+    D34d1b959-fe22-455f-9b99-fbbdca43af25 -->|子| C301b3329-e267-4104-8a71-75bbb199f782
+
+    C01b4e482-c48b-4faf-a4e4-4b0587556a5d["山田二郎<br>41歳<br>25.0%"]
+    class C01b4e482-c48b-4faf-a4e4-4b0587556a5d child
+    D34d1b959-fe22-455f-9b99-fbbdca43af25 -->|子| C01b4e482-c48b-4faf-a4e4-4b0587556a5d
+
+```
