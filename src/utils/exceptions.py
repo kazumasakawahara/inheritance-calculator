@@ -24,3 +24,8 @@ class ValidationError(InheritanceCalculatorError):
 class LoggingError(InheritanceCalculatorError):
     """ロギング関連のエラー"""
     pass
+
+
+class ServiceException(InheritanceCalculatorError):
+    """サービス層のエラー"""
+    pass

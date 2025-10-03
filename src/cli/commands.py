@@ -531,3 +531,100 @@ def version_command(args: Namespace) -> int:
     console.print("バージョン: 1.0.0")
     console.print("日本の民法に基づく相続計算ツール")
     return 0
+
+
+def interview_command(args: Namespace) -> int:
+    """AI対話型インタビューコマンド
+
+    Args:
+        args: コマンドライン引数
+
+    Returns:
+        終了コード（0: 成功、1以上: エラー）
+    """
+    from src.agents.interview_agent import InterviewAgent
+    from rich.prompt import Prompt
+
+    try:
+        console.print("\n[bold cyan]═══════════════════════════════════════[/bold cyan]")
+        console.print("[bold cyan]  AI対話型相続情報収集システム[/bold cyan]")
+        console.print("[bold cyan]═══════════════════════════════════════[/bold cyan]\n")
+
+        console.print("[yellow]※ Ollamaサーバー (gpt-oss:20b) に接続します...[/yellow]\n")
+
+        # InterviewAgentの初期化
+        agent = InterviewAgent()
+        console.print("[green]✓ AIエージェント接続完了[/green]\n")
+
+        # インタビュー開始
+        first_message = agent.start_interview()
+        console.print(f"[bold]{first_message}[/bold]\n")
+
+        # 対話ループ
+        while not agent.is_completed():
+            # ユーザー入力
+            user_input = Prompt.ask("[cyan]あなた[/cyan]")
+
+            if user_input.lower() in ["quit", "exit", "終了"]:
+                console.print("\n[yellow]インタビューを中断しました。[/yellow]")
+                return 1
+
+            # 応答を処理
+            response = agent.process_response(user_input)
+            console.print(f"\n[bold]エージェント[/bold]: {response}\n")
+
+        # データを収集完了
+        collected_data = agent.get_collected_data()
+
+        # 相続計算を実行
+        if collected_data["decedent"]:
+            console.print("\n[bold green]═══ 相続計算を実行します ═══[/bold green]\n")
+
+            calculator = InheritanceCalculator()
+            result = calculator.calculate(
+                decedent=collected_data["decedent"],
+                spouses=collected_data["spouses"],
+                children=collected_data["children"],
+                parents=collected_data["parents"],
+                siblings=collected_data["siblings"],
+                renounced=collected_data["renounced"],
+                disqualified=collected_data["disqualified"],
+                disinherited=collected_data["disinherited"],
+                sibling_blood_types=collected_data["sibling_blood_types"],
+                retransfer_heirs_info=collected_data["retransfer_heirs_info"],
+            )
+
+            # 結果を表示
+            display_result(result)
+
+            # 出力オプション
+            if args.output:
+                console.print(f"\n[cyan]結果を {args.output} に保存しています...[/cyan]")
+                generator = ReportGenerator()
+                output_path = Path(args.output)
+
+                if output_path.suffix == '.json':
+                    generator.generate_json_report(result, output_path)
+                elif output_path.suffix == '.md':
+                    generator.generate_markdown_report(result, output_path)
+                elif output_path.suffix == '.pdf':
+                    generator.generate_pdf_report(result, output_path)
+                else:
+                    display_error(f"サポートされていない出力形式: {output_path.suffix}")
+                    return 1
+
+                console.print(f"[green]✓ 保存完了: {output_path}[/green]")
+
+            return 0
+        else:
+            display_error("被相続人の情報が収集できませんでした。")
+            return 1
+
+    except KeyboardInterrupt:
+        console.print("\n\n[yellow]インタビューを中断しました。[/yellow]")
+        return 1
+    except Exception as e:
+        display_error(f"エラーが発生しました: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1

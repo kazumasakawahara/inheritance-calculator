@@ -121,6 +121,19 @@ def create_parser() -> argparse.ArgumentParser:
     )
     tree_parser.set_defaults(func=commands.tree_command)
 
+    # interview コマンド
+    interview_parser = subparsers.add_parser(
+        'interview',
+        help='AI対話型インタビューで相続情報を収集'
+    )
+    interview_parser.add_argument(
+        '-o', '--output',
+        dest='output',
+        type=Path,
+        help='計算結果の出力ファイルパス（.json, .md, .pdf）'
+    )
+    interview_parser.set_defaults(func=commands.interview_command)
+
     # version コマンド
     version_parser = subparsers.add_parser(
         'version',

@@ -46,13 +46,43 @@ uv sync
 
 ### 基本的な使い方
 
-#### 1. 対話型モード
+#### 0. AI対話型インタビュー（推奨）⭐
+
+```bash
+uv run python -m src.cli.main interview
+```
+
+**新機能**: Ollama（gpt-oss:20b）を使ったAIエージェントが対話形式で相続情報を収集します。
+- 自然言語での質問に答えるだけで、必要な情報を自動収集
+- 法的用語を分かりやすく説明
+- 入力ミスを防ぎ、正確な相続計算をサポート
+
+```bash
+# 結果を保存する場合
+uv run python -m src.cli.main interview -o result.json  # JSON形式で保存
+uv run python -m src.cli.main interview -o report.md   # Markdown形式で保存
+uv run python -m src.cli.main interview -o report.pdf  # PDF形式で保存
+```
+
+**必須**: Ollamaがインストールされ、`gpt-oss:20b`モデルがpull済みであることが必要です。
+```bash
+# Ollamaのインストール（Macの場合）
+brew install ollama
+
+# gpt-oss:20bモデルのpull
+ollama pull gpt-oss:20b
+
+# Ollamaサーバーの起動
+ollama serve
+```
+
+#### 1. 従来の対話型モード
 
 ```bash
 uv run python -m src.cli.main calculate
 ```
 
-対話形式で相続情報を入力し、計算結果を表示します。
+手動入力による対話形式で相続情報を入力し、計算結果を表示します。
 
 #### 2. ファイルからの計算
 
