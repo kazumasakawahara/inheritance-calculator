@@ -21,6 +21,11 @@ from app.schemas.person_schema import (
     RelationshipResponse,
     FamilyTreeResponse,
 )
+from app.schemas.calculation_schema import (
+    HeirInfo,
+    CalculationResult,
+    CalculationRequest,
+)
 
 __all__ = [
     "DateConversionRequest",
@@ -38,4 +43,7 @@ __all__ = [
     "RelationshipCreate",
     "RelationshipResponse",
     "FamilyTreeResponse",
+    "HeirInfo",
+    "CalculationResult",
+    "CalculationRequest",
 ]

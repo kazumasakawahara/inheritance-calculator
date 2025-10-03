@@ -9,8 +9,13 @@ project_root = Path(__file__).parent.parent.parent.parent
 src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
-from database.neo4j_client import Neo4jClient  # type: ignore[import-not-found]
-from utils.config import Neo4jSettings  # type: ignore[import-not-found]
+try:
+    from database.neo4j_client import Neo4jClient  # type: ignore[import-not-found]
+    from utils.config import Neo4jSettings  # type: ignore[import-not-found]
+except ImportError:
+    # テスト環境での代替処理
+    Neo4jClient = None  # type: ignore[assignment, misc]
+    Neo4jSettings = None  # type: ignore[assignment, misc]
 from app.core.config import settings
 
 

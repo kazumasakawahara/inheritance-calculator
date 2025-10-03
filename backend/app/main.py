@@ -25,7 +25,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 
-@app.get("/")
+@app.get("/", tags=["root"])
 async def root() -> dict[str, str]:
     """ルートエンドポイント"""
     return {
@@ -35,7 +35,7 @@ async def root() -> dict[str, str]:
     }
 
 
-@app.get("/health")
+@app.get("/health", tags=["health"])
 async def health_check() -> dict[str, str]:
     """ヘルスチェックエンドポイント"""
     return {"status": "ok"}
