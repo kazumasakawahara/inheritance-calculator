@@ -3,6 +3,7 @@
 相続計算結果をNeo4jに保存するサービス。
 """
 from typing import List, Dict
+from datetime import date
 import logging
 
 from ..database.neo4j_client import Neo4jClient
@@ -114,10 +115,14 @@ class Neo4jService:
                     # 既に人物ノードが存在する可能性があるため、存在チェック
                     if not self.person_repo.find_by_name(person.name):
                         self.person_repo.create(person)
+
+                    # 放棄日は被相続人の死亡日、またはデフォルト値を使用
+                    renounce_date = decedent.death_date if decedent.death_date is not None else date.today()
+
                     self.relationship_repo.create_renounced(
                         person_name=person.name,
                         decedent_name=decedent.name,
-                        renounce_date=decedent.death_date  # 簡易実装
+                        renounce_date=renounce_date
                     )
 
                 self.logger.info("Successfully saved inheritance case to Neo4j")

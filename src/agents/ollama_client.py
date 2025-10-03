@@ -65,7 +65,7 @@ class OllamaClient:
             models = ollama.list()
 
             # モデルの存在確認
-            model_names = [m.model for m in models.models]
+            model_names = [m.model for m in models.models if m.model is not None]
             if self.model not in model_names:
                 available = ", ".join(model_names)
                 raise ServiceException(
@@ -118,6 +118,9 @@ class OllamaClient:
 
             # 応答の取得
             content = response.message.content
+            if content is None:
+                self.logger.warning("Received None content from Ollama")
+                return ""
 
             self.logger.debug(f"Received response: {len(content)} characters")
 

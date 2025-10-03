@@ -204,7 +204,7 @@ class PersonRepository:
             dd = node["death_date"]
             death_date = date(dd.year, dd.month, dd.day) if hasattr(dd, "year") else None
 
-        gender = Gender(node["gender"]) if node.get("gender") else None
+        gender = Gender(node["gender"]) if node.get("gender") else Gender.UNKNOWN
 
         return Person(
             name=node["name"],

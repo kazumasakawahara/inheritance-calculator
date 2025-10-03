@@ -2,7 +2,7 @@
 
 Neo4jデータベースへの接続と操作を管理するクライアント。
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Generator
 from contextlib import contextmanager
 import logging
 
@@ -31,7 +31,11 @@ class Neo4jClient(DatabaseClient):
         self.logger = logging.getLogger(__name__)
 
         if settings is None:
-            settings = Neo4jSettings()
+            try:
+                settings = Neo4jSettings()  # type: ignore[call-arg]
+            except Exception:
+                # テスト環境等でパスワードが設定されていない場合のフォールバック
+                raise DatabaseException("Neo4j設定の初期化に失敗しました。NEO4J_PASSWORD環境変数が設定されているか確認してください。")
 
         self.uri = settings.uri
         self.user = settings.user
@@ -121,17 +125,26 @@ class Neo4jClient(DatabaseClient):
         Returns:
             データベースが正常に動作している場合True
         """
+        if self._driver is None:
+            return False
+
         try:
             with self._driver.session(database=self.database) as session:
                 result = session.run("RETURN 1 as health")
-                return result.single()["health"] == 1
+                record = result.single()
+                if record is None:
+                    return False
+                return bool(record["health"] == 1)
         except Exception as e:
             self.logger.error(f"Health check failed: {e}")
             return False
 
-    def begin_transaction(self) -> None:
+    def begin_transaction(self) -> Transaction:
         """
         トランザクションを開始
+
+        Returns:
+            トランザクションオブジェクト
 
         Raises:
             DatabaseException: トランザクション開始に失敗した場合
@@ -145,56 +158,87 @@ class Neo4jClient(DatabaseClient):
 
             self._transaction = self._session.begin_transaction()
             self.logger.debug("Transaction started")
+            return self._transaction
 
         except Exception as e:
             self.logger.error(f"Failed to begin transaction: {e}", exc_info=True)
             raise DatabaseException(f"トランザクション開始エラー: {str(e)}")
 
-    def commit(self) -> None:
+    def commit_transaction(self, transaction: Any) -> None:
         """
         トランザクションをコミット
+
+        Args:
+            transaction: トランザクションオブジェクト
 
         Raises:
             DatabaseException: コミットに失敗した場合
         """
-        if self._transaction is None:
-            raise DatabaseException("アクティブなトランザクションがありません")
+        if transaction is None:
+            raise DatabaseException("トランザクションがNullです")
 
         try:
-            self._transaction.commit()
-            self._transaction = None
+            transaction.commit()
+            if self._transaction == transaction:
+                self._transaction = None
             self.logger.debug("Transaction committed")
 
         except Exception as e:
             self.logger.error(f"Failed to commit transaction: {e}", exc_info=True)
             raise DatabaseException(f"トランザクションコミットエラー: {str(e)}")
 
-    def rollback(self) -> None:
+    def rollback_transaction(self, transaction: Any) -> None:
         """
         トランザクションをロールバック
+
+        Args:
+            transaction: トランザクションオブジェクト
 
         Raises:
             DatabaseException: ロールバックに失敗した場合
         """
-        if self._transaction is None:
-            raise DatabaseException("アクティブなトランザクションがありません")
+        if transaction is None:
+            raise DatabaseException("トランザクションがNullです")
 
         try:
-            self._transaction.rollback()
-            self._transaction = None
+            transaction.rollback()
+            if self._transaction == transaction:
+                self._transaction = None
             self.logger.debug("Transaction rolled back")
 
         except Exception as e:
             self.logger.error(f"Failed to rollback transaction: {e}", exc_info=True)
             raise DatabaseException(f"トランザクションロールバックエラー: {str(e)}")
 
-    def execute(
+    def commit(self) -> None:
+        """
+        現在のトランザクションをコミット（内部メソッド）
+
+        Raises:
+            DatabaseException: コミットに失敗した場合
+        """
+        if self._transaction is None:
+            raise DatabaseException("アクティブなトランザクションがありません")
+        self.commit_transaction(self._transaction)
+
+    def rollback(self) -> None:
+        """
+        現在のトランザクションをロールバック（内部メソッド）
+
+        Raises:
+            DatabaseException: ロールバックに失敗した場合
+        """
+        if self._transaction is None:
+            raise DatabaseException("アクティブなトランザクションがありません")
+        self.rollback_transaction(self._transaction)
+
+    def execute_query(
         self,
         query: str,
         parameters: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Cypherクエリを実行
+        Cypherクエリを実行（基底クラスメソッド）
 
         Args:
             query: Cypherクエリ文字列
@@ -227,14 +271,37 @@ class Neo4jClient(DatabaseClient):
             self.logger.error(f"Unexpected error during query execution: {e}", exc_info=True)
             raise DatabaseException(f"予期しないエラー: {str(e)}")
 
+    def execute(
+        self,
+        query: str,
+        parameters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Cypherクエリを実行（互換性メソッド）
+
+        Args:
+            query: Cypherクエリ文字列
+            parameters: クエリパラメータ
+
+        Returns:
+            クエリ結果のリスト
+
+        Raises:
+            DatabaseException: クエリ実行に失敗した場合
+        """
+        return self.execute_query(query, parameters)
+
     @contextmanager
-    def transaction(self):
+    def transaction(self) -> Generator["Neo4jClient", None, None]:
         """
         トランザクションコンテキストマネージャー
 
         Usage:
             with client.transaction():
                 client.execute("CREATE (n:Person {name: $name})", {"name": "太郎"})
+
+        Yields:
+            Neo4jClient: 自身のインスタンス
         """
         self.begin_transaction()
         try:
@@ -280,12 +347,11 @@ class Neo4jClient(DatabaseClient):
                 # 制約が既に存在する場合は無視
                 self.logger.debug(f"Constraint/Index already exists or failed: {e}")
 
-    def __enter__(self):
+    def __enter__(self) -> "Neo4jClient":
         """コンテキストマネージャーのエントリー"""
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """コンテキストマネージャーのイグジット"""
         self.disconnect()
-        return False

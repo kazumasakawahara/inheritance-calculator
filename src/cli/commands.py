@@ -4,7 +4,7 @@
 """
 import sys
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, List, Dict
 from argparse import Namespace
 from rich.console import Console
 
@@ -13,6 +13,9 @@ from src.cli.csv_parser import CSVParser
 from src.cli.report_generator import ReportGenerator
 from src.cli.family_tree_generator import FamilyTreeGenerator
 from src.services.inheritance_calculator import InheritanceCalculator
+from src.models.person import Person
+from src.models.relationship import BloodType
+from src.models.inheritance import InheritanceResult
 
 console = Console()
 
@@ -314,16 +317,16 @@ def export_result(result: Any, output_file: Path) -> None:
 
 
 def save_to_neo4j(
-    decedent,
-    spouses,
-    children,
-    parents,
-    siblings,
-    renounced,
-    disqualified,
-    disinherited,
-    sibling_blood_types,
-    result
+    decedent: Person,
+    spouses: List[Person],
+    children: List[Person],
+    parents: List[Person],
+    siblings: List[Person],
+    renounced: List[Person],
+    disqualified: List[Person],
+    disinherited: List[Person],
+    sibling_blood_types: Dict[str, BloodType],
+    result: InheritanceResult
 ) -> None:
     """相続ケースをNeo4jに保存
 
@@ -696,15 +699,21 @@ def interview_command(args: Namespace) -> int:
             # 出力オプション
             if args.output:
                 console.print(f"\n[cyan]結果を {args.output} に保存しています...[/cyan]")
-                generator = ReportGenerator()
                 output_path = Path(args.output)
 
                 if output_path.suffix == '.json':
-                    generator.generate_json_report(result, output_path)
+                    # JSON形式で保存
+                    import json
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        json.dump(result.model_dump(), f, ensure_ascii=False, indent=2, default=str)
                 elif output_path.suffix == '.md':
-                    generator.generate_markdown_report(result, output_path)
+                    # Markdown形式で保存
+                    generator = ReportGenerator()
+                    generator.generate_markdown(result, output_path)
                 elif output_path.suffix == '.pdf':
-                    generator.generate_pdf_report(result, output_path)
+                    # PDF形式で保存
+                    generator = ReportGenerator()
+                    generator.generate_pdf(result, output_path)
                 else:
                     display_error(f"サポートされていない出力形式: {output_path.suffix}")
                     return 1
