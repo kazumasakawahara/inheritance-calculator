@@ -95,10 +95,17 @@ class Repository(ABC, Generic[T]):
 
 
 class DatabaseClient(ABC):
-    """データベースクライアントの基底クラス"""
+    """データベースクライアントの基底クラス（同期版）
+
+    Note:
+        現在の実装ではNeo4jの同期ドライバーを使用しているため、
+        すべてのメソッドは同期版として定義されています。
+        将来的に非同期対応が必要になった場合は、
+        AsyncDatabaseClientクラスを別途定義することを推奨します。
+    """
 
     @abstractmethod
-    async def connect(self) -> None:
+    def connect(self) -> None:
         """
         データベースに接続
 
@@ -108,7 +115,7 @@ class DatabaseClient(ABC):
         pass
 
     @abstractmethod
-    async def disconnect(self) -> None:
+    def disconnect(self) -> None:
         """
         データベース接続を切断
 
@@ -118,7 +125,7 @@ class DatabaseClient(ABC):
         pass
 
     @abstractmethod
-    async def execute_query(
+    def execute_query(
         self,
         query: str,
         parameters: Optional[dict[str, Any]] = None
@@ -139,7 +146,7 @@ class DatabaseClient(ABC):
         pass
 
     @abstractmethod
-    async def health_check(self) -> bool:
+    def health_check(self) -> bool:
         """
         ヘルスチェック
 
@@ -152,7 +159,7 @@ class DatabaseClient(ABC):
         pass
 
     @abstractmethod
-    async def begin_transaction(self) -> Any:
+    def begin_transaction(self) -> Any:
         """
         トランザクションを開始
 
@@ -165,7 +172,7 @@ class DatabaseClient(ABC):
         pass
 
     @abstractmethod
-    async def commit_transaction(self, transaction: Any) -> None:
+    def commit_transaction(self, transaction: Any) -> None:
         """
         トランザクションをコミット
 
@@ -178,7 +185,7 @@ class DatabaseClient(ABC):
         pass
 
     @abstractmethod
-    async def rollback_transaction(self, transaction: Any) -> None:
+    def rollback_transaction(self, transaction: Any) -> None:
         """
         トランザクションをロールバック
 
@@ -189,3 +196,12 @@ class DatabaseClient(ABC):
             DatabaseConnectionError: ロールバックエラー
         """
         pass
+
+    def __enter__(self) -> "DatabaseClient":
+        """コンテキストマネージャーの開始"""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """コンテキストマネージャーの終了"""
+        self.disconnect()

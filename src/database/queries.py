@@ -2,7 +2,7 @@
 
 Neo4jデータベースで使用するCypherクエリを定義する。
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 class PersonQueries:
@@ -290,9 +290,9 @@ def build_person_params(
     name: str,
     is_alive: bool = True,
     is_decedent: bool = False,
-    birth_date: str = None,
-    death_date: str = None,
-    gender: str = None
+    birth_date: Optional[str] = None,
+    death_date: Optional[str] = None,
+    gender: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Person作成用のパラメータを構築

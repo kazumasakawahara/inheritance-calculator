@@ -37,6 +37,7 @@ class Neo4jSettings(BaseSettings):
     uri: str = Field(default="bolt://localhost:7687", description="Neo4j接続URI")
     user: str = Field(default="neo4j", description="Neo4jユーザー名")
     password: str = Field(..., description="Neo4jパスワード（必須）")
+    database: str = Field(default="neo4j", description="Neo4jデータベース名")
     auto_create_constraints: bool = Field(
         default=True, description="制約を自動作成するか"
     )

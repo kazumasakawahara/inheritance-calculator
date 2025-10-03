@@ -29,3 +29,12 @@ class LoggingError(InheritanceCalculatorError):
 class ServiceException(InheritanceCalculatorError):
     """サービス層のエラー"""
     pass
+
+
+class DatabaseException(InheritanceCalculatorError):
+    """データベース操作のエラー
+
+    Neo4j操作、クエリ実行、トランザクション処理などで
+    発生するデータベース関連のエラー。
+    """
+    pass

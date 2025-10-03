@@ -130,8 +130,13 @@ class TestPersonRepository:
         assert found is None
 
 
+def _run_integration_enabled(config):
+    """統合テストが有効かチェック"""
+    return config.getoption("--run-integration", default=False)
+
+
 @pytest.mark.skipif(
-    not pytest.config.getoption("--run-integration"),
+    "not config.getoption('--run-integration', default=False)",
     reason="Integration tests require Neo4j running"
 )
 class TestIntegration:
