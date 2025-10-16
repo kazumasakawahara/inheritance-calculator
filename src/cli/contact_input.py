@@ -132,7 +132,22 @@ class ContactInfoCollector:
         if not email:
             return True  # 空は許可
 
-        return "@" in email and "." in email.split("@")[-1]
+        # @で分割してユーザー名とドメインを取得
+        if "@" not in email:
+            return False
+
+        parts = email.split("@")
+        if len(parts) != 2:
+            return False
+
+        username, domain = parts
+
+        # ユーザー名とドメインが空でないこと
+        if not username or not domain:
+            return False
+
+        # ドメインに.が含まれること
+        return "." in domain
 
     def _validate_phone(self, phone: str) -> bool:
         """電話番号バリデーション（柔軟な検証）

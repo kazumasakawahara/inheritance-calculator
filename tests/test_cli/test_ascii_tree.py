@@ -47,6 +47,8 @@ class TestAsciiTreeGenerator:
         return InheritanceResult(
             decedent=decedent,
             heirs=heirs,
+            has_spouse=True,
+            has_children=True,
             calculation_basis=["配偶者と子の相続"]
         )
 
@@ -83,6 +85,8 @@ class TestAsciiTreeGenerator:
         return InheritanceResult(
             decedent=decedent,
             heirs=heirs,
+            has_spouse=True,
+            has_children=True,
             calculation_basis=["配偶者と子の相続", "代襲相続が発生"]
         )
 
