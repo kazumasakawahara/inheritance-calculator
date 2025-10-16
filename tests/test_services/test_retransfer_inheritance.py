@@ -12,12 +12,16 @@ class TestRetransferInheritance:
     """再転相続のテストクラス"""
 
     def test_retransfer_basic(self) -> None:
-        """基本的な再転相続のテスト
+        """基本的な再転相続のテスト（配偶者1人・子2人）
 
         ケース8: 再転相続
         - 被相続人: A（2025年1月死亡）
-        - 子B（2025年2月死亡、遺産分割前）、Bの配偶者C、Bの子D
-        - 期待結果: Bの相続分（全部）がCとDに再転相続される
+        - 子B（2025年2月死亡、遺産分割前）
+        - Bの相続人: 配偶者C、子D、子E
+        - 期待結果（民法900条1号に基づく）:
+          - C（配偶者）: 1/1 × 1/2 = 1/2
+          - D（子）: 1/1 × 1/4 = 1/4
+          - E（子）: 1/1 × 1/4 = 1/4
         """
         # 被相続人A
         decedent = Person(
@@ -47,11 +51,26 @@ class TestRetransferInheritance:
             is_alive=True
         )
 
+        # Bの子E
+        child_e = Person(
+            name="E",
+            is_alive=True
+        )
+
         calculator = InheritanceCalculator()
 
-        # 再転相続先の情報を設定
+        # 再転相続先の情報を設定（配偶者1人・子2人）
         retransfer_info = {
-            str(child_b.id): [spouse_c, child_d]
+            str(child_b.id): [spouse_c, child_d, child_e]
+        }
+
+        # 再転相続先の関係情報を設定
+        retransfer_relationships = {
+            str(child_b.id): {
+                str(spouse_c.id): 'spouse',
+                str(child_d.id): 'child',
+                str(child_e.id): 'child'
+            }
         }
 
         result = calculator.calculate(
@@ -60,21 +79,28 @@ class TestRetransferInheritance:
             children=[child_b],
             parents=[],
             siblings=[],
-            retransfer_heirs_info=retransfer_info
+            retransfer_heirs_info=retransfer_info,
+            retransfer_relationships=retransfer_relationships
         )
 
         # 検証
-        assert result.total_heirs == 2
+        assert result.total_heirs == 3
         assert "再転相続" in str(result.calculation_basis) or "民法第896条" in str(result.calculation_basis)
 
-        # CとDがそれぞれ1/2ずつ相続
+        # 法定相続分に基づく按分（均等分割ではない）
         heirs_by_name = {heir.person.name: heir for heir in result.heirs}
         assert "C" in heirs_by_name
         assert "D" in heirs_by_name
+        assert "E" in heirs_by_name
+
+        # 配偶者: 1/2、子: 各1/4（民法900条1号）
         assert heirs_by_name["C"].share == Fraction(1, 2)
-        assert heirs_by_name["D"].share == Fraction(1, 2)
+        assert heirs_by_name["D"].share == Fraction(1, 4)
+        assert heirs_by_name["E"].share == Fraction(1, 4)
+
         assert heirs_by_name["C"].is_retransfer is True
         assert heirs_by_name["D"].is_retransfer is True
+        assert heirs_by_name["E"].is_retransfer is True
 
     def test_retransfer_with_spouse_and_retransfer_heir(self) -> None:
         """配偶者と再転相続が混在するケース"""

@@ -49,7 +49,10 @@ class PersonRepository:
             is_decedent=person.is_decedent,
             birth_date=person.birth_date.isoformat() if person.birth_date else None,
             death_date=person.death_date.isoformat() if person.death_date else None,
-            gender=person.gender.value if person.gender else None
+            gender=person.gender.value if person.gender else None,
+            address=person.address,
+            phone=person.phone,
+            email=person.email
         )
 
         try:
@@ -134,7 +137,10 @@ class PersonRepository:
             "name": person.name,
             "is_alive": person.is_alive,
             "death_date": person.death_date.isoformat() if person.death_date else None,
-            "gender": person.gender.value if person.gender else None
+            "gender": person.gender.value if person.gender else None,
+            "address": person.address,
+            "phone": person.phone,
+            "email": person.email
         }
 
         try:
@@ -212,7 +218,10 @@ class PersonRepository:
             is_decedent=node["is_decedent"],
             birth_date=birth_date,
             death_date=death_date,
-            gender=gender
+            gender=gender,
+            address=node.get("address"),
+            phone=node.get("phone"),
+            email=node.get("email")
         )
 
 

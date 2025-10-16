@@ -15,7 +15,10 @@ class PersonQueries:
         is_decedent: $is_decedent,
         birth_date: date($birth_date),
         death_date: CASE WHEN $death_date IS NOT NULL THEN date($death_date) ELSE NULL END,
-        gender: $gender
+        gender: $gender,
+        address: $address,
+        phone: $phone,
+        email: $email
     })
     RETURN p
     """
@@ -40,7 +43,10 @@ class PersonQueries:
     MATCH (p:Person {name: $name})
     SET p.is_alive = $is_alive,
         p.death_date = CASE WHEN $death_date IS NOT NULL THEN date($death_date) ELSE NULL END,
-        p.gender = $gender
+        p.gender = $gender,
+        p.address = $address,
+        p.phone = $phone,
+        p.email = $email
     RETURN p
     """
 
@@ -292,7 +298,10 @@ def build_person_params(
     is_decedent: bool = False,
     birth_date: Optional[str] = None,
     death_date: Optional[str] = None,
-    gender: Optional[str] = None
+    gender: Optional[str] = None,
+    address: Optional[str] = None,
+    phone: Optional[str] = None,
+    email: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Person作成用のパラメータを構築
@@ -304,6 +313,9 @@ def build_person_params(
         birth_date: 生年月日（YYYY-MM-DD形式）
         death_date: 死亡日（YYYY-MM-DD形式）
         gender: 性別
+        address: 住所
+        phone: 電話番号
+        email: メールアドレス
 
     Returns:
         Cypherクエリ用のパラメータ辞書
@@ -314,5 +326,8 @@ def build_person_params(
         "is_decedent": is_decedent,
         "birth_date": birth_date,
         "death_date": death_date,
-        "gender": gender
+        "gender": gender,
+        "address": address,
+        "phone": phone,
+        "email": email
     }

@@ -3,7 +3,7 @@ from datetime import date
 from typing import Optional, Any
 from enum import Enum
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, EmailStr
 
 from .base import Neo4jNode
 
@@ -34,6 +34,11 @@ class Person(Neo4jNode):
         default=False,
         description="遺産分割前に死亡したか（再転相続の対象）"
     )
+
+    # 連絡先情報（オプショナル）
+    address: Optional[str] = Field(default=None, description="住所")
+    phone: Optional[str] = Field(default=None, description="電話番号")
+    email: Optional[EmailStr] = Field(default=None, description="メールアドレス")
 
     @field_validator('death_date')
     @classmethod
@@ -70,6 +75,28 @@ class Person(Neo4jNode):
     def mark_as_decedent(self) -> None:
         """被相続人として記録"""
         self.is_decedent = True
+        self.mark_updated()
+
+    def set_contact_info(
+        self,
+        address: Optional[str] = None,
+        phone: Optional[str] = None,
+        email: Optional[str] = None
+    ) -> None:
+        """
+        連絡先情報を設定
+
+        Args:
+            address: 住所
+            phone: 電話番号
+            email: メールアドレス
+        """
+        if address is not None:
+            self.address = address
+        if phone is not None:
+            self.phone = phone
+        if email is not None:
+            self.email = email
         self.mark_updated()
 
     @property

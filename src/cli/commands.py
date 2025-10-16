@@ -13,6 +13,7 @@ from src.cli.display import display_result, display_error, display_info
 from src.cli.csv_parser import CSVParser
 from src.cli.report_generator import ReportGenerator
 from src.cli.family_tree_generator import FamilyTreeGenerator
+from src.cli.contact_input import ContactInfoCollector
 from src.services.inheritance_calculator import InheritanceCalculator
 from src.models.person import Person
 from src.models.relationship import BloodType
@@ -25,6 +26,81 @@ from src.utils.exceptions import (
 )
 
 console = Console()
+
+
+def handle_post_calculation(
+    result: InheritanceResult,
+    collect_contact: bool = True,
+    output_file: Optional[Path] = None,
+    save_neo4j: bool = False,
+    decedent: Optional[Person] = None,
+    spouses: Optional[List[Person]] = None,
+    children: Optional[List[Person]] = None,
+    parents: Optional[List[Person]] = None,
+    siblings: Optional[List[Person]] = None,
+    renounced: Optional[List[Person]] = None,
+    disqualified: Optional[List[Person]] = None,
+    disinherited: Optional[List[Person]] = None,
+    sibling_blood_types: Optional[Dict[str, BloodType]] = None
+) -> None:
+    """相続計算後の処理（連絡先収集、レポート生成、Neo4j保存）
+
+    Args:
+        result: 相続計算結果
+        collect_contact: 連絡先情報を収集するか
+        output_file: 出力ファイルパス
+        save_neo4j: Neo4jに保存するか
+        decedent: 被相続人
+        spouses: 配偶者リスト
+        children: 子リスト
+        parents: 直系尊属リスト
+        siblings: 兄弟姉妹リスト
+        renounced: 相続放棄者リスト
+        disqualified: 相続欠格者リスト
+        disinherited: 相続廃除者リスト
+        sibling_blood_types: 兄弟姉妹の血縁タイプ
+    """
+    # 連絡先情報の収集（インタラクティブなシェルの場合のみ）
+    if collect_contact and sys.stdin.isatty():
+        try:
+            collector = ContactInfoCollector()
+            updated_persons = collector.collect_contact_info_for_heirs(result)
+
+            if updated_persons:
+                # サマリー表示
+                collector.display_contact_summary(updated_persons)
+        except (EOFError, OSError):
+            # テストや非対話環境では連絡先収集をスキップ
+            pass
+
+    # レポート生成
+    if output_file:
+        export_result(result, output_file)
+        display_info(f"結果を {output_file} に出力しました。")
+
+        # CSV連絡先エクスポート（オプション）
+        if output_file.suffix.lower() in ['.md', '.pdf']:
+            from rich.prompt import Confirm
+            if Confirm.ask("連絡先情報のCSVもエクスポートしますか？", default=False):
+                csv_path = output_file.parent / f"{output_file.stem}_contacts.csv"
+                ReportGenerator.export_contact_csv(result, csv_path)
+                display_info(f"連絡先情報を {csv_path} に出力しました。")
+
+    # Neo4jに保存
+    if save_neo4j and all([decedent, spouses is not None, children is not None,
+                           parents is not None, siblings is not None]):
+        save_to_neo4j(
+            decedent=decedent,
+            spouses=spouses,
+            children=children,
+            parents=parents,
+            siblings=siblings,
+            renounced=renounced or [],
+            disqualified=disqualified or [],
+            disinherited=disinherited or [],
+            sibling_blood_types=sibling_blood_types or {},
+            result=result
+        )
 
 
 def calculate_command(args: Namespace) -> int:
@@ -172,25 +248,22 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, sa
         # 結果の表示
         display_result(result)
 
-        # 出力ファイルが指定されている場合
-        if output_file:
-            export_result(result, output_file)
-            display_info(f"結果を {output_file} に出力しました。")
-
-        # Neo4jに保存
-        if save_neo4j:
-            save_to_neo4j(
-                decedent=decedent,
-                spouses=spouses,
-                children=children,
-                parents=parents,
-                siblings=siblings,
-                renounced=renounced,
-                disqualified=[],
-                disinherited=[],
-                sibling_blood_types=sibling_blood_types if sibling_blood_types else {},
-                result=result
-            )
+        # 計算後の処理（連絡先収集、レポート生成、Neo4j保存）
+        handle_post_calculation(
+            result=result,
+            collect_contact=True,
+            output_file=output_file,
+            save_neo4j=save_neo4j,
+            decedent=decedent,
+            spouses=spouses,
+            children=children,
+            parents=parents,
+            siblings=siblings,
+            renounced=renounced,
+            disqualified=[],
+            disinherited=[],
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else {}
+        )
 
         return 0
 
@@ -239,25 +312,22 @@ def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, sav
         # 結果の表示
         display_result(result)
 
-        # 出力ファイルが指定されている場合
-        if output_file:
-            export_result(result, output_file)
-            display_info(f"結果を {output_file} に出力しました。")
-
-        # Neo4jに保存
-        if save_neo4j:
-            save_to_neo4j(
-                decedent=decedent,
-                spouses=spouses,
-                children=children,
-                parents=parents,
-                siblings=siblings,
-                renounced=renounced,
-                disqualified=[],
-                disinherited=[],
-                sibling_blood_types=sibling_blood_types if sibling_blood_types else {},
-                result=result
-            )
+        # 計算後の処理（連絡先収集、レポート生成、Neo4j保存）
+        handle_post_calculation(
+            result=result,
+            collect_contact=True,
+            output_file=output_file,
+            save_neo4j=save_neo4j,
+            decedent=decedent,
+            spouses=spouses,
+            children=children,
+            parents=parents,
+            siblings=siblings,
+            renounced=renounced,
+            disqualified=[],
+            disinherited=[],
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else {}
+        )
 
         return 0
 
@@ -348,6 +418,10 @@ def export_result(result: Any, output_file: Path) -> None:
     elif file_ext == '.pdf':
         # PDF形式
         ReportGenerator.generate_pdf(result, output_file)
+
+    elif file_ext == '.csv':
+        # CSV形式（連絡先情報）
+        ReportGenerator.export_contact_csv(result, output_file)
 
     else:
         raise ValueError(f"サポートされていない出力形式です: {file_ext}")
@@ -763,44 +837,23 @@ def interview_command(args: Namespace) -> int:
             # 結果を表示
             display_result(result)
 
-            # 出力オプション
-            if args.output:
-                console.print(f"\n[cyan]結果を {args.output} に保存しています...[/cyan]")
-                output_path = Path(args.output)
-
-                if output_path.suffix == '.json':
-                    # JSON形式で保存
-                    import json
-                    with open(output_path, 'w', encoding='utf-8') as f:
-                        json.dump(result.model_dump(), f, ensure_ascii=False, indent=2, default=str)
-                elif output_path.suffix == '.md':
-                    # Markdown形式で保存
-                    generator = ReportGenerator()
-                    generator.generate_markdown(result, output_path)
-                elif output_path.suffix == '.pdf':
-                    # PDF形式で保存
-                    generator = ReportGenerator()
-                    generator.generate_pdf(result, output_path)
-                else:
-                    display_error(f"サポートされていない出力形式: {output_path.suffix}")
-                    return 1
-
-                console.print(f"[green]✓ 保存完了: {output_path}[/green]")
-
-            # Neo4jに保存
-            if getattr(args, 'save_to_neo4j', False):
-                save_to_neo4j(
-                    decedent=collected_data["decedent"],
-                    spouses=collected_data["spouses"],
-                    children=collected_data["children"],
-                    parents=collected_data["parents"],
-                    siblings=collected_data["siblings"],
-                    renounced=collected_data["renounced"],
-                    disqualified=collected_data["disqualified"],
-                    disinherited=collected_data["disinherited"],
-                    sibling_blood_types=collected_data["sibling_blood_types"],
-                    result=result
-                )
+            # 計算後の処理（連絡先収集、レポート生成、Neo4j保存）
+            output_path = Path(args.output) if args.output else None
+            handle_post_calculation(
+                result=result,
+                collect_contact=True,
+                output_file=output_path,
+                save_neo4j=getattr(args, 'save_to_neo4j', False),
+                decedent=collected_data["decedent"],
+                spouses=collected_data["spouses"],
+                children=collected_data["children"],
+                parents=collected_data["parents"],
+                siblings=collected_data["siblings"],
+                renounced=collected_data["renounced"],
+                disqualified=collected_data["disqualified"],
+                disinherited=collected_data["disinherited"],
+                sibling_blood_types=collected_data["sibling_blood_types"]
+            )
 
             return 0
         else:

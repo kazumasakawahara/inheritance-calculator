@@ -206,3 +206,228 @@ class TestReportGenerator:
         # エラーなくPDFが生成されることを確認
         ReportGenerator.generate_pdf(result, output_file)
         assert output_file.exists()
+
+    def test_generate_markdown_with_contact_info(self, tmp_path: Path) -> None:
+        """連絡先情報を含むMarkdownレポート"""
+        decedent = Person(
+            name="山田太郎",
+            is_decedent=True,
+            is_alive=False,
+            death_date=date(2025, 6, 15)
+        )
+
+        spouse = Person(
+            name="山田花子",
+            is_alive=True,
+            address="東京都渋谷区渋谷1-1-1",
+            phone="03-1234-5678",
+            email="hanako@example.com"
+        )
+
+        child = Person(
+            name="山田一郎",
+            is_alive=True,
+            address="大阪府大阪市北区梅田1-1-1",
+            phone="06-9876-5432",
+            email="ichiro@example.com"
+        )
+
+        heirs = [
+            Heir(
+                person=spouse,
+                rank=HeritageRank.SPOUSE,
+                share=Fraction(1, 2),
+                share_percentage=50.0,
+                substitution_type=SubstitutionType.NONE
+            ),
+            Heir(
+                person=child,
+                rank=HeritageRank.FIRST,
+                share=Fraction(1, 2),
+                share_percentage=50.0,
+                substitution_type=SubstitutionType.NONE
+            ),
+        ]
+
+        result = InheritanceResult(
+            decedent=decedent,
+            heirs=heirs,
+            calculation_basis=["民法900条1号"]
+        )
+
+        output_file = tmp_path / "contact.md"
+        ReportGenerator.generate_markdown(result, output_file)
+
+        assert output_file.exists()
+        content = output_file.read_text(encoding='utf-8')
+
+        # 連絡先情報セクションの確認
+        assert "相続人連絡先情報" in content
+        assert "東京都渋谷区渋谷1-1-1" in content
+        assert "03-1234-5678" in content
+        assert "hanako@example.com" in content
+        assert "大阪府大阪市北区梅田1-1-1" in content
+        assert "06-9876-5432" in content
+        assert "ichiro@example.com" in content
+
+    def test_generate_pdf_with_contact_info(self, tmp_path: Path) -> None:
+        """連絡先情報を含むPDFレポート"""
+        decedent = Person(
+            name="山田太郎",
+            is_decedent=True,
+            is_alive=False
+        )
+
+        spouse = Person(
+            name="山田花子",
+            is_alive=True,
+            address="愛知県名古屋市中区栄1-1-1",
+            phone="052-123-4567",
+            email="hanako@example.com"
+        )
+
+        heirs = [
+            Heir(
+                person=spouse,
+                rank=HeritageRank.SPOUSE,
+                share=Fraction(1, 1),
+                share_percentage=100.0,
+                substitution_type=SubstitutionType.NONE
+            ),
+        ]
+
+        result = InheritanceResult(
+            decedent=decedent,
+            heirs=heirs,
+            calculation_basis=["配偶者のみ"]
+        )
+
+        output_file = tmp_path / "contact.pdf"
+        ReportGenerator.generate_pdf(result, output_file)
+
+        assert output_file.exists()
+
+        # PDFファイルのマジックナンバー確認
+        with open(output_file, 'rb') as f:
+            header = f.read(4)
+            assert header == b'%PDF'
+
+    def test_export_contact_csv(self, tmp_path: Path) -> None:
+        """連絡先情報CSVエクスポート"""
+        decedent = Person(
+            name="山田太郎",
+            is_decedent=True,
+            is_alive=False
+        )
+
+        spouse = Person(
+            name="山田花子",
+            is_alive=True,
+            address="福岡県福岡市博多区博多駅前1-1-1",
+            phone="092-111-2222",
+            email="hanako@example.com"
+        )
+
+        child = Person(
+            name="山田一郎",
+            is_alive=True,
+            address="北海道札幌市中央区北1条西1丁目",
+            phone="011-333-4444",
+            email="ichiro@example.com"
+        )
+
+        heirs = [
+            Heir(
+                person=spouse,
+                rank=HeritageRank.SPOUSE,
+                share=Fraction(1, 2),
+                share_percentage=50.0,
+                substitution_type=SubstitutionType.NONE
+            ),
+            Heir(
+                person=child,
+                rank=HeritageRank.FIRST,
+                share=Fraction(1, 2),
+                share_percentage=50.0,
+                substitution_type=SubstitutionType.NONE
+            ),
+        ]
+
+        result = InheritanceResult(
+            decedent=decedent,
+            heirs=heirs,
+            calculation_basis=["民法900条1号"]
+        )
+
+        output_file = tmp_path / "contacts.csv"
+        ReportGenerator.export_contact_csv(result, output_file)
+
+        assert output_file.exists()
+
+        # CSVの内容確認
+        import csv
+        with open(output_file, 'r', encoding='utf-8-sig', newline='') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+
+            # ヘッダー行
+            assert rows[0] == ["氏名", "続柄", "相続順位", "相続割合（分数）", "相続割合（%）", "住所", "電話番号", "メールアドレス"]
+
+            # データ行（2名の相続人）
+            assert len(rows) == 3  # ヘッダー + 2データ行
+
+            # 配偶者のデータ
+            assert rows[1][0] == "山田花子"
+            assert "福岡県福岡市博多区博多駅前1-1-1" in rows[1][5]
+            assert "092-111-2222" in rows[1][6]
+            assert "hanako@example.com" in rows[1][7]
+
+            # 子のデータ
+            assert rows[2][0] == "山田一郎"
+            assert "北海道札幌市中央区北1条西1丁目" in rows[2][5]
+            assert "011-333-4444" in rows[2][6]
+            assert "ichiro@example.com" in rows[2][7]
+
+    def test_export_contact_csv_no_contacts(self, tmp_path: Path) -> None:
+        """連絡先情報がない場合のCSVエクスポート"""
+        decedent = Person(
+            name="山田太郎",
+            is_decedent=True,
+            is_alive=False
+        )
+
+        spouse = Person(
+            name="山田花子",
+            is_alive=True
+            # 連絡先情報なし
+        )
+
+        heirs = [
+            Heir(
+                person=spouse,
+                rank=HeritageRank.SPOUSE,
+                share=Fraction(1, 1),
+                share_percentage=100.0,
+                substitution_type=SubstitutionType.NONE
+            ),
+        ]
+
+        result = InheritanceResult(
+            decedent=decedent,
+            heirs=heirs,
+            calculation_basis=["配偶者のみ"]
+        )
+
+        output_file = tmp_path / "no_contacts.csv"
+        ReportGenerator.export_contact_csv(result, output_file)
+
+        assert output_file.exists()
+
+        # CSVの内容確認
+        import csv
+        with open(output_file, 'r', encoding='utf-8-sig', newline='') as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+
+            # 連絡先なしメッセージの確認
+            assert "連絡先情報が登録されている相続人はありません" in rows[1][-1]

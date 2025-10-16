@@ -1,10 +1,11 @@
 """レポート生成機能
 
-PDF・Markdown形式でのレポート出力機能を提供します。
+PDF・Markdown・CSV形式でのレポート出力機能を提供します。
 """
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+import csv
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -88,6 +89,27 @@ class ReportGenerator:
             )
 
         lines.append("\n")
+
+        # 連絡先情報（データがある場合のみ表示）
+        heirs_with_contact = [
+            heir for heir in result.heirs
+            if heir.person.address or heir.person.phone or heir.person.email
+        ]
+
+        if heirs_with_contact:
+            lines.append("## 相続人連絡先情報\n")
+            lines.append("| 氏名 | 住所 | 電話番号 | メールアドレス |\n")
+            lines.append("|------|------|----------|----------------|\n")
+
+            for heir in heirs_with_contact:
+                lines.append(
+                    f"| {heir.person.name} | "
+                    f"{heir.person.address or '-'} | "
+                    f"{heir.person.phone or '-'} | "
+                    f"{heir.person.email or '-'} |\n"
+                )
+
+            lines.append("\n")
 
         # 計算根拠
         lines.append("## 計算根拠\n")
@@ -200,6 +222,12 @@ class ReportGenerator:
 
         heir_data = [["氏名", "続柄", "相続順位", "相続割合（分数）", "相続割合（%）"]]
 
+        # 連絡先情報がある相続人を収集
+        heirs_with_contact = [
+            heir for heir in result.heirs
+            if heir.person.address or heir.person.phone or heir.person.email
+        ]
+
         for heir in result.heirs:
             person_name = heir.person.name
             if heir.person.is_alive and heir.person.current_age is not None:
@@ -248,6 +276,40 @@ class ReportGenerator:
         story.append(heir_table)
         story.append(Spacer(1, 15))
 
+        # 連絡先情報（データがある場合のみ表示）
+        if heirs_with_contact:
+            story.append(Paragraph("相続人連絡先情報", heading_style))
+
+            contact_data = [["氏名", "住所", "電話番号", "メールアドレス"]]
+
+            for heir in heirs_with_contact:
+                contact_data.append([
+                    heir.person.name,
+                    heir.person.address or "-",
+                    heir.person.phone or "-",
+                    heir.person.email or "-"
+                ])
+
+            contact_table = Table(contact_data, colWidths=[40*mm, 50*mm, 35*mm, 45*mm])
+            contact_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ]))
+            story.append(contact_table)
+            story.append(Spacer(1, 15))
+
         # 計算根拠
         story.append(Paragraph("計算根拠", heading_style))
         for basis in result.calculation_basis:
@@ -266,3 +328,68 @@ class ReportGenerator:
 
         # PDF生成
         doc.build(story)
+
+    @staticmethod
+    def export_contact_csv(result: InheritanceResult, output_path: Path) -> None:
+        """連絡先情報をCSV形式でエクスポート
+
+        Args:
+            result: 相続計算結果
+            output_path: 出力ファイルパス
+        """
+        # 連絡先情報がある相続人のみ抽出
+        heirs_with_contact = [
+            heir for heir in result.heirs
+            if heir.person.address or heir.person.phone or heir.person.email
+        ]
+
+        if not heirs_with_contact:
+            # 連絡先情報がない場合は空のCSVを作成
+            with open(output_path, 'w', encoding='utf-8-sig', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(["氏名", "続柄", "住所", "電話番号", "メールアドレス", "備考"])
+                writer.writerow(["", "", "", "", "", "連絡先情報が登録されている相続人はありません"])
+            return
+
+        with open(output_path, 'w', encoding='utf-8-sig', newline='') as f:
+            writer = csv.writer(f)
+
+            # ヘッダー行
+            writer.writerow([
+                "氏名",
+                "続柄",
+                "相続順位",
+                "相続割合（分数）",
+                "相続割合（%）",
+                "住所",
+                "電話番号",
+                "メールアドレス"
+            ])
+
+            # データ行
+            for heir in heirs_with_contact:
+                rank_name = {
+                    "spouse": "配偶者",
+                    "first": "第1順位",
+                    "second": "第2順位",
+                    "third": "第3順位"
+                }.get(heir.rank.value, heir.rank.value)
+
+                relation = heir.rank.value
+                if heir.substitution_type:
+                    sub_type_name = {
+                        "child": "子の代襲",
+                        "sibling": "兄弟姉妹の代襲"
+                    }.get(heir.substitution_type.value, "代襲")
+                    relation += f"（{sub_type_name}）"
+
+                writer.writerow([
+                    heir.person.name,
+                    relation,
+                    rank_name,
+                    str(heir.share),
+                    f"{heir.share_percentage:.2f}",
+                    heir.person.address or "",
+                    heir.person.phone or "",
+                    heir.person.email or ""
+                ])

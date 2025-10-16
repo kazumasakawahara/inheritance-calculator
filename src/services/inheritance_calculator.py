@@ -13,6 +13,7 @@ from ..models.inheritance import (
     SubstitutionType,
     Heir,
 )
+from ..utils.exceptions import RenunciationConflictError
 from .heir_validator import HeirValidator
 from .share_calculator import ShareCalculator
 from .base import BaseService
@@ -43,6 +44,8 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
         disinherited: Optional[List[Person]] = None,
         sibling_blood_types: Optional[Dict[str, BloodType]] = None,
         retransfer_heirs_info: Optional[Dict[str, List[Person]]] = None,
+        retransfer_relationships: Optional[Dict[str, Dict[str, str]]] = None,
+        second_inheritance_renounced: Optional[Dict[str, List[Person]]] = None,
     ) -> InheritanceResult:
         """
         相続計算を実行
@@ -58,6 +61,11 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
             disinherited: 相続廃除者
             sibling_blood_types: 兄弟姉妹の血縁タイプ
             retransfer_heirs_info: 再転相続先の情報（相続人ID: 再転相続先リスト）
+            retransfer_relationships: 再転相続先の関係情報（相続人ID: {人物ID: 関係タイプ}）
+                例: {"deceased_heir_id": {"person1_id": "spouse", "person2_id": "child"}}
+            second_inheritance_renounced: 第2次相続の放棄者情報（死亡相続人ID: 放棄者リスト）
+                例: {"deceased_heir_id": [person1, person2]}
+                判例により、第2次相続を放棄した者は第1次相続のみを承認できない
 
         Returns:
             相続計算結果
@@ -73,6 +81,10 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
             sibling_blood_types = {}
         if retransfer_heirs_info is None:
             retransfer_heirs_info = {}
+        if retransfer_relationships is None:
+            retransfer_relationships = {}
+        if second_inheritance_renounced is None:
+            second_inheritance_renounced = {}
 
         # バリデータの初期化
         self.validator.set_decedent(decedent)
@@ -120,7 +132,7 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
         if retransfer_heirs_info:
             all_persons = spouses + children + parents + siblings
             result = self._process_retransfer_inheritance_with_info(
-                result, retransfer_heirs_info
+                result, retransfer_heirs_info, retransfer_relationships, second_inheritance_renounced
             )
 
         self.log_operation(
@@ -234,7 +246,9 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
     def _process_retransfer_inheritance_with_info(
         self,
         result: InheritanceResult,
-        retransfer_info: Dict[str, List[Person]]
+        retransfer_info: Dict[str, List[Person]],
+        retransfer_relationships: Dict[str, Dict[str, str]],
+        second_inheritance_renounced: Dict[str, List[Person]]
     ) -> InheritanceResult:
         """
         再転相続の処理（情報付き版）
@@ -242,6 +256,8 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
         Args:
             result: 現在の相続計算結果
             retransfer_info: 再転相続先の情報（相続人ID: 再転相続先リスト）
+            retransfer_relationships: 再転相続先の関係情報（相続人ID: {人物ID: 関係タイプ}）
+            second_inheritance_renounced: 第2次相続の放棄者情報（死亡相続人ID: 放棄者リスト）
 
         Returns:
             再転相続処理後の相続計算結果
@@ -275,10 +291,28 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
                 new_heirs.append(original_heir)
                 continue
 
-            # 再転相続分を計算
-            retransfer_shares = self._calculate_retransfer_shares(
+            # 判例制約の検証: 第2次相続を放棄した者が第1次相続の再転相続先に含まれていないか
+            self._validate_retransfer_renunciation(
+                result.decedent,
+                original_heir.person,
+                retransfer_targets,
+                second_inheritance_renounced.get(heir_id, [])
+            )
+
+            # 再転相続先を相続順位別に分類
+            # retransfer_relationships から該当する相続人の関係情報を取得
+            relationship_hints = retransfer_relationships.get(heir_id, None)
+
+            classified_heirs = self._classify_retransfer_heirs(
+                retransfer_targets,
+                original_heir.person,
+                relationship_hints
+            )
+
+            # 再転相続分を計算（法定相続分に基づく）
+            retransfer_shares = self._calculate_retransfer_shares_classified(
                 original_heir.share,
-                retransfer_targets
+                classified_heirs
             )
 
             # 再転相続人を追加
@@ -401,13 +435,157 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
 
         return retransfer_heirs
 
+    def _validate_retransfer_renunciation(
+        self,
+        decedent: Person,
+        deceased_heir: Person,
+        retransfer_targets: List[Person],
+        second_inheritance_renounced: List[Person]
+    ) -> None:
+        """
+        再転相続における相続放棄の制約を検証
+
+        判例（最高裁昭和63年6月21日判決）により、再転相続において
+        第2次相続（相続人の相続）を放棄した者は、第1次相続（被相続人の相続）
+        のみを承認することはできない。
+
+        Args:
+            decedent: 被相続人（第1次相続の被相続人）
+            deceased_heir: 遺産分割前に死亡した相続人（第2次相続の被相続人）
+            retransfer_targets: 再転相続先（第1次相続を承認しようとしている者）
+            second_inheritance_renounced: 第2次相続の放棄者リスト
+
+        Raises:
+            RenunciationConflictError: 第2次相続を放棄した者が第1次相続を承認しようとしている場合
+        """
+        for renounced_person in second_inheritance_renounced:
+            if renounced_person in retransfer_targets:
+                raise RenunciationConflictError(
+                    f"{renounced_person.name}は{deceased_heir.name}の相続を放棄しているため、"
+                    f"{decedent.name}の相続のみを承認することはできません "
+                    f"（最高裁昭和63年6月21日判決）。\n"
+                    f"再転相続においては、第2次相続を放棄した者は第1次相続のみを単独で承認できません。"
+                )
+
+    def _classify_retransfer_heirs(
+        self,
+        retransfer_targets: List[Person],
+        deceased_heir: Person,
+        relationship_hints: Optional[Dict[str, str]] = None
+    ) -> Dict[str, List[Person]]:
+        """
+        再転相続先を相続順位別に分類
+
+        relationship_hintsが提供されている場合は、それを使用して分類する。
+        提供されていない場合は、暫定的に全員を子として扱う（後方互換性）。
+
+        Args:
+            retransfer_targets: 再転相続先のリスト
+            deceased_heir: 遺産分割前に死亡した相続人
+            relationship_hints: 人物IDから関係タイプへのマッピング
+                キー: 人物ID（str(person.id)）
+                値: 'spouse' | 'child' | 'parent' | 'sibling'
+
+        Returns:
+            相続順位別の分類 {'spouses': [...], 'children': [...], ...}
+        """
+        classified: Dict[str, List[Person]] = {
+            'spouses': [],
+            'children': [],
+            'parents': [],
+            'siblings': []
+        }
+
+        # relationship_hintsが提供されていない場合は全員を子として扱う（後方互換性）
+        if relationship_hints is None:
+            classified['children'] = retransfer_targets
+            return classified
+
+        # relationship_hintsを使って分類
+        for person in retransfer_targets:
+            person_id = str(person.id)
+            relationship = relationship_hints.get(person_id, 'child')  # デフォルトは子
+
+            if relationship == 'spouse':
+                classified['spouses'].append(person)
+            elif relationship == 'child':
+                classified['children'].append(person)
+            elif relationship == 'parent':
+                classified['parents'].append(person)
+            elif relationship == 'sibling':
+                classified['siblings'].append(person)
+            else:
+                # 不明な関係タイプの場合は子として扱う
+                classified['children'].append(person)
+
+        return classified
+
+    def _calculate_retransfer_shares_classified(
+        self,
+        original_share: Fraction,
+        classified_heirs: Dict[str, List[Person]]
+    ) -> List[tuple[Person, Fraction]]:
+        """
+        分類済み再転相続先の相続分を計算（民法第896条に基づく）
+
+        遺産分割前に死亡した相続人の相続分を、その相続人の法定相続人に
+        法定相続分に従って分配する。
+
+        計算フロー:
+        1. 分類済みの相続人リストを使用
+        2. ShareCalculatorで法定相続分を計算
+        3. 元の相続分に法定相続分を乗じて最終的な相続分を算出
+
+        Args:
+            original_share: 元の相続分（遺産分割前に死亡した相続人の相続分）
+            classified_heirs: 相続順位別に分類された再転相続先
+
+        Returns:
+            各再転相続人と相続分のタプルのリスト
+
+        Example:
+            元の相続分が1/1で、配偶者1人・子2人の場合:
+            - 配偶者: 1/1 × 1/2 = 1/2（民法900条1号）
+            - 子1: 1/1 × 1/4 = 1/4（民法900条1号）
+            - 子2: 1/1 × 1/4 = 1/4（民法900条1号）
+        """
+        spouses = classified_heirs.get('spouses', [])
+        children = classified_heirs.get('children', [])
+        parents = classified_heirs.get('parents', [])
+        siblings = classified_heirs.get('siblings', [])
+
+        # 再転相続先がいない場合
+        if not (spouses or children or parents or siblings):
+            return []
+
+        # ShareCalculatorを使って法定相続分を計算
+        statutory_shares = self.calculator.calculate_shares(
+            spouses=spouses,
+            first_rank=children,
+            second_rank=parents,
+            third_rank=siblings,
+            third_rank_blood_types={}  # TODO: 必要に応じて血縁タイプ情報を渡す
+        )
+
+        # 元の相続分を法定相続分で按分
+        result = []
+        all_heirs = spouses + children + parents + siblings
+        for person in all_heirs:
+            person_id = str(person.id)
+            if person_id in statutory_shares:
+                # 元の相続分 × 再転相続先の法定相続分
+                final_share = original_share * statutory_shares[person_id]
+                result.append((person, final_share))
+
+        return result
+
     def _calculate_retransfer_shares(
         self,
         original_share: Fraction,
         retransfer_targets: List[Person]
     ) -> List[tuple[Person, Fraction]]:
         """
-        再転相続分を計算
+        再転相続分を計算（後方互換性のためのラッパー）
 
         Args:
             original_share: 元の相続分
@@ -416,14 +594,11 @@ class InheritanceCalculator(BaseService[InheritanceResult]):
         Returns:
             各再転相続人と相続分のタプルのリスト
         """
-        if not retransfer_targets:
-            return []
-
-        # 簡易実装: 均等に分割
-        # 実際には再転相続先の法定相続分に応じて按分すべき
-        per_person_share = original_share / len(retransfer_targets)
-
-        return [
-            (person, per_person_share)
-            for person in retransfer_targets
-        ]
+        # 暫定的な分類（全員を子として扱う）
+        classified: Dict[str, List[Person]] = {
+            'spouses': [],
+            'children': retransfer_targets,
+            'parents': [],
+            'siblings': []
+        }
+        return self._calculate_retransfer_shares_classified(original_share, classified)
