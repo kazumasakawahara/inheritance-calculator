@@ -6,8 +6,8 @@ from datetime import date
 import pytest
 
 from src.cli.csv_parser import CSVParser
-from src.models.relationship import BloodType
-from src.utils.exceptions import ValidationError
+from inheritance_calculator_core.models.relationship import BloodType
+from inheritance_calculator_core.utils.exceptions import ValidationError
 
 
 class TestCSVParser:

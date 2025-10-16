@@ -3,8 +3,8 @@
 ターミナルで表示可能なASCIIアート形式の家系図を生成します。
 """
 from typing import List, Dict, Optional
-from src.models.inheritance import InheritanceResult, HeritageRank
-from src.utils.logger import get_logger
+from inheritance_calculator_core.models.inheritance import InheritanceResult, HeritageRank
+from inheritance_calculator_core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

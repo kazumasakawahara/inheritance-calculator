@@ -8,10 +8,10 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from pydantic import ValidationError
 
-from src.models.person import Person
-from src.models.inheritance import InheritanceResult
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.inheritance import InheritanceResult
 from src.cli.prompts import InteractivePrompt
-from src.utils.logger import get_logger
+from inheritance_calculator_core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 console = Console()

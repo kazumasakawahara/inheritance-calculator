@@ -18,7 +18,7 @@ from rich.progress import (
     TimeElapsedColumn
 )
 
-from src.models.inheritance import InheritanceResult, HeritageRank
+from inheritance_calculator_core.models.inheritance import InheritanceResult, HeritageRank
 
 
 console = Console()

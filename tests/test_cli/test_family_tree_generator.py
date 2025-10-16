@@ -6,8 +6,8 @@ from fractions import Fraction
 import pytest
 
 from src.cli.family_tree_generator import FamilyTreeGenerator
-from src.models.person import Person
-from src.models.inheritance import InheritanceResult, Heir, HeritageRank, SubstitutionType
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.inheritance import InheritanceResult, Heir, HeritageRank, SubstitutionType
 
 
 class TestFamilyTreeGenerator:

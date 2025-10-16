@@ -14,11 +14,11 @@ from src.cli.csv_parser import CSVParser
 from src.cli.report_generator import ReportGenerator
 from src.cli.family_tree_generator import FamilyTreeGenerator
 from src.cli.contact_input import ContactInfoCollector
-from src.services.inheritance_calculator import InheritanceCalculator
-from src.models.person import Person
-from src.models.relationship import BloodType
-from src.models.inheritance import InheritanceResult
-from src.utils.exceptions import (
+from inheritance_calculator_core.services.inheritance_calculator import InheritanceCalculator
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.relationship import BloodType
+from inheritance_calculator_core.models.inheritance import InheritanceResult
+from inheritance_calculator_core.utils.exceptions import (
     InheritanceCalculatorError,
     ValidationError,
     DatabaseException,
@@ -160,8 +160,8 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, sa
     """
     import json
     from datetime import date
-    from src.models.person import Person
-    from src.models.relationship import BloodType
+    from inheritance_calculator_core.models.person import Person
+    from inheritance_calculator_core.models.relationship import BloodType
 
     try:
         # JSONファイルを読み込み
@@ -453,8 +453,8 @@ def save_to_neo4j(
         sibling_blood_types: 兄弟姉妹の血縁タイプ
         result: 計算結果
     """
-    from src.database.neo4j_client import Neo4jClient
-    from src.services.neo4j_service import Neo4jService
+    from inheritance_calculator_core.database.neo4j_client import Neo4jClient
+    from inheritance_calculator_core.services.neo4j_service import Neo4jService
 
     try:
         with Neo4jClient() as client:
@@ -635,8 +635,8 @@ def tree_command(args: Namespace) -> int:
             # JSON形式の読み込み（calculate_from_fileと同様）
             import json
             from datetime import date
-            from src.models.person import Person
-            from src.models.relationship import BloodType
+            from inheritance_calculator_core.models.person import Person
+            from inheritance_calculator_core.models.relationship import BloodType
 
             with open(args.input_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -782,7 +782,7 @@ def interview_command(args: Namespace) -> int:
     Returns:
         終了コード（0: 成功、1以上: エラー）
     """
-    from src.agents.interview_agent import InterviewAgent
+    from inheritance_calculator_core.agents.interview_agent import InterviewAgent
     from rich.prompt import Prompt
 
     try:

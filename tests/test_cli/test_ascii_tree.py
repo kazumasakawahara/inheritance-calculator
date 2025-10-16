@@ -5,8 +5,8 @@ from fractions import Fraction
 import pytest
 
 from src.cli.ascii_tree import AsciiTreeGenerator
-from src.models.person import Person, Gender
-from src.models.inheritance import InheritanceResult, Heir, HeritageRank
+from inheritance_calculator_core.models.person import Person, Gender
+from inheritance_calculator_core.models.inheritance import InheritanceResult, Heir, HeritageRank
 
 
 class TestAsciiTreeGenerator:

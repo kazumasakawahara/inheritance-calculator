@@ -1,8 +1,8 @@
 """設定管理のテスト"""
 import pytest
 from pydantic import ValidationError
-from src.utils.config import Neo4jSettings, OllamaSettings, LogSettings, Settings
-from src.utils.exceptions import ConfigurationError
+from inheritance_calculator_core.utils.config import Neo4jSettings, OllamaSettings, LogSettings, Settings
+from inheritance_calculator_core.utils.exceptions import ConfigurationError
 
 
 class TestNeo4jSettings:

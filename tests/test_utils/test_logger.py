@@ -2,8 +2,8 @@
 import pytest
 import logging
 from pathlib import Path
-from src.utils.logger import setup_logger, get_logger, _logger_cache
-from src.utils.exceptions import LoggingError
+from inheritance_calculator_core.utils.logger import setup_logger, get_logger, _logger_cache
+from inheritance_calculator_core.utils.exceptions import LoggingError
 
 
 class TestSetupLogger:

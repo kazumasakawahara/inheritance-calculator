@@ -12,7 +12,7 @@ from rich.prompt import Prompt, Confirm
 from pydantic import ValidationError
 
 from src.cli.session import Session, SessionManager
-from src.utils.logger import get_logger
+from inheritance_calculator_core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 console = Console()

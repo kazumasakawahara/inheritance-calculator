@@ -10,8 +10,8 @@ from src.cli.commands import (
     export_result,
     validate_command,
 )
-from src.models.person import Person
-from src.models.inheritance import InheritanceResult, Heir, HeritageRank
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.inheritance import InheritanceResult, Heir, HeritageRank
 from fractions import Fraction
 
 

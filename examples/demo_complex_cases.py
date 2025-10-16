@@ -7,9 +7,9 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from src.models.person import Person
-from src.models.relationship import BloodType
-from src.services.inheritance_calculator import InheritanceCalculator
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.relationship import BloodType
+from inheritance_calculator_core.services.inheritance_calculator import InheritanceCalculator
 
 
 console = Console()

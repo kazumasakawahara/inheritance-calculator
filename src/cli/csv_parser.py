@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
-from src.models.person import Person
-from src.models.relationship import BloodType
-from src.utils.exceptions import ValidationError
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.relationship import BloodType
+from inheritance_calculator_core.utils.exceptions import ValidationError
 
 
 @dataclass

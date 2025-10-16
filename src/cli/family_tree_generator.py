@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import List, Optional, Dict, Set
 from graphviz import Digraph
 
-from src.models.person import Person
-from src.models.inheritance import InheritanceResult
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.inheritance import InheritanceResult
 
 
 class FamilyTreeGenerator:

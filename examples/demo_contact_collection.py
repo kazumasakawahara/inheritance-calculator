@@ -5,8 +5,8 @@
 from datetime import date
 from fractions import Fraction
 
-from src.models.person import Person
-from src.models.inheritance import InheritanceResult, Heir, HeritageRank, SubstitutionType
+from inheritance_calculator_core.models.person import Person
+from inheritance_calculator_core.models.inheritance import InheritanceResult, Heir, HeritageRank, SubstitutionType
 from src.cli.contact_input import ContactInfoCollector
 from src.cli.report_generator import ReportGenerator
 from src.cli.display import display_result, display_info

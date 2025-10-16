@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict
 
-from src.utils.logger import get_logger
+from inheritance_calculator_core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 

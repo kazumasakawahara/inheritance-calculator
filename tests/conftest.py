@@ -34,7 +34,7 @@ def mock_settings(monkeypatch):
 
     # 設定モジュールを再インポートして環境変数を反映
     import importlib
-    from src.utils import config
+    from inheritance_calculator_core.utils import config
     importlib.reload(config)
 
     return config.Settings()

@@ -15,7 +15,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-from src.models.inheritance import InheritanceResult
+from inheritance_calculator_core.models.inheritance import InheritanceResult
 
 
 class ReportGenerator:

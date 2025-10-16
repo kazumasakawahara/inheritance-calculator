@@ -1,10 +1,12 @@
-# 相続計算機 (Inheritance Calculator)
+# 相続計算機 CLI (Inheritance Calculator CLI)
 
-日本の民法に基づく相続人の資格確定と相続割合（法定相続分）の計算を自動化するアプリケーション。
+日本の民法に基づく相続人の資格確定と相続割合（法定相続分）の計算を自動化するCLIアプリケーション。
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Test Coverage: 75%](https://img.shields.io/badge/coverage-75%25-brightgreen.svg)](https://github.com/your-org/inheritance-calculator)
+[![Test Coverage: 66%](https://img.shields.io/badge/coverage-66%25-green.svg)](https://github.com/kazumasakawahara/inheritance-calculator-cli)
+
+> **Note**: このパッケージはCLIアプリケーションです。コアライブラリは [inheritance-calculator-core](https://github.com/kazumasakawahara/inheritance-calculator-core) を参照してください。
 
 ## 📋 特徴
 
@@ -35,10 +37,18 @@
 
 ### インストール
 
+#### PyPIから（推奨）
+
+```bash
+pip install inheritance-calculator-cli
+```
+
+#### ソースから
+
 ```bash
 # リポジトリのクローン
-git clone https://github.com/your-org/inheritance-calculator.git
-cd inheritance-calculator
+git clone https://github.com/kazumasakawahara/inheritance-calculator-cli.git
+cd inheritance-calculator-cli
 
 # uvを使った依存関係のインストール
 uv sync

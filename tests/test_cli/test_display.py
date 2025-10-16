@@ -18,8 +18,8 @@ from src.cli.display import (
     display_header,
     display_completion
 )
-from src.models.inheritance import InheritanceResult, Heir, HeritageRank
-from src.models.person import Person, Gender
+from inheritance_calculator_core.models.inheritance import InheritanceResult, Heir, HeritageRank
+from inheritance_calculator_core.models.person import Person, Gender
 
 
 class TestDisplayFunctions:

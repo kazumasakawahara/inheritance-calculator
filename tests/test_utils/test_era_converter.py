@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import date
-from src.utils.era_converter import (
+from inheritance_calculator_core.utils.era_converter import (
     parse_japanese_date,
     format_japanese_date,
     get_era_name,
