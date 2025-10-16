@@ -4,7 +4,8 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Test Coverage: 66%](https://img.shields.io/badge/coverage-66%25-green.svg)](https://github.com/kazumasakawahara/inheritance-calculator-cli)
+[![Tests](https://github.com/kazumasakawahara/inheritance-calculator/actions/workflows/test.yml/badge.svg)](https://github.com/kazumasakawahara/inheritance-calculator/actions/workflows/test.yml)
+[![Test Coverage: 68%](https://img.shields.io/badge/coverage-68%25-green.svg)](https://github.com/kazumasakawahara/inheritance-calculator)
 
 > **Note**: このパッケージはCLIアプリケーションです。コアライブラリは [inheritance-calculator-core](https://github.com/kazumasakawahara/inheritance-calculator-core) を参照してください。
 
@@ -15,7 +16,7 @@
 - 🌳 **複雑なケース対応**: 代襲相続、相続放棄、半血兄弟姉妹の処理
 - 💻 **使いやすいCLI**: Rich libraryによる美しいコマンドラインインターフェース
 - 📁 **柔軟な入出力**: JSON/CSV形式での入力・出力、対話型モード
-- 🧪 **高品質**: 130件のテスト、75%のカバレッジ
+- 🧪 **高品質**: 131件のテスト、68%のカバレッジ
 
 ## 🎯 対応ケース
 
