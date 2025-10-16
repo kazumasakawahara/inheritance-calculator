@@ -18,7 +18,7 @@ classifiers = [
     "Environment :: Console",
 ]
 dependencies = [
-    "inheritance-calculator-core @ file:///Users/k-kawahara/Dev-Work/inheritance-calculator-core",
+    "inheritance-calculator-core @ git+https://github.com/kazumasakawahara/inheritance-calculator-core.git@main",
     "graphviz>=0.21",
     "markdown>=3.9",
     "reportlab>=4.4.4",
