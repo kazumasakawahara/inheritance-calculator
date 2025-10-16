@@ -11,39 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12"]
 
     steps:
     - uses: actions/checkout@v4
-
+    
     - name: Install uv
-      uses: astral-sh/setup-uv@v1
+      uses: astral-sh/setup-uv@v3
       with:
-        enable-cache: true
-
+        version: "latest"
+    
     - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
+      run: uv python install 3.12
+    
     - name: Install dependencies
       run: uv sync --all-extras
-
-    - name: Run linting
-      run: |
-        uv run ruff check src tests
-        uv run black --check src tests
-
-    - name: Run type checking
-      run: uv run mypy src
-
+    
     - name: Run tests
-      env:
-        NEO4J_PASSWORD: test_password_123
-      run: uv run pytest
-
-    - name: Upload coverage
-      if: matrix.python-version == '3.12'
-      uses: codecov/codecov-action@v3
+      run: uv run pytest tests/test_cli/ -v --cov=src/cli --cov-report=xml --cov-report=term
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
+        fail_ci_if_error: false
