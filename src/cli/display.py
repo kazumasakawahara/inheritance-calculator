@@ -2,24 +2,26 @@
 
 Rich libraryを使った美しい表示機能を提供します。
 """
-from typing import List, Optional, Callable, Any
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager, contextmanager
+
+from inheritance_calculator_core.models.inheritance import (
+    HeritageRank,
+    InheritanceResult,
+)
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.tree import Tree
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
     TimeRemainingColumn,
-    TimeElapsedColumn
 )
-
-from inheritance_calculator_core.models.inheritance import InheritanceResult, HeritageRank
-
+from rich.table import Table
+from rich.tree import Tree
 
 console = Console()
 
@@ -32,14 +34,15 @@ def display_result(result: InheritanceResult, show_visual: bool = True) -> None:
         show_visual: 視覚的表示を含めるか
     """
     console.print()
-    console.print(Panel.fit(
-        "[bold green]相続計算結果[/bold green]",
-        border_style="green"
-    ))
+    console.print(
+        Panel.fit("[bold green]相続計算結果[/bold green]", border_style="green")
+    )
     console.print()
 
     # 相続人一覧テーブル（視覚的な割合表示を追加）
-    table = Table(title="相続人と相続割合", show_header=True, header_style="bold magenta")
+    table = Table(
+        title="相続人と相続割合", show_header=True, header_style="bold magenta"
+    )
     table.add_column("氏名", style="cyan", width=20)
     table.add_column("続柄", style="green", width=12)
     table.add_column("相続順位", style="yellow", width=12)
@@ -59,7 +62,7 @@ def display_result(result: InheritanceResult, show_visual: bool = True) -> None:
         "spouse": "green",
         "first": "blue",
         "second": "yellow",
-        "third": "magenta"
+        "third": "magenta",
     }
 
     for heir in result.heirs:
@@ -68,7 +71,7 @@ def display_result(result: InheritanceResult, show_visual: bool = True) -> None:
             heir.rank.value,
             rank_names.get(heir.rank.value, "不明"),
             str(heir.share),
-            f"{heir.share_percentage:.2f}%"
+            f"{heir.share_percentage:.2f}%",
         ]
 
         if show_visual:
@@ -90,16 +93,18 @@ def display_result(result: InheritanceResult, show_visual: bool = True) -> None:
     console.print()
 
     # サマリー情報（アイコン付き）
-    console.print(Panel(
-        f"👤 [bold]被相続人:[/bold] {result.decedent}\n"
-        f"👨‍👩‍👧‍👦 [bold]相続人総数:[/bold] {result.total_heirs}名\n"
-        f"💑 [bold]配偶者:[/bold] {'あり' if result.has_spouse else 'なし'}\n"
-        f"👶 [bold]子:[/bold] {'あり' if result.has_children else 'なし'}\n"
-        f"👴 [bold]直系尊属:[/bold] {'あり' if result.has_parents else 'なし'}\n"
-        f"👫 [bold]兄弟姉妹:[/bold] {'あり' if result.has_siblings else 'なし'}",
-        title="[bold cyan]計算サマリー[/bold cyan]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel(
+            f"👤 [bold]被相続人:[/bold] {result.decedent}\n"
+            f"👨‍👩‍👧‍👦 [bold]相続人総数:[/bold] {result.total_heirs}名\n"
+            f"💑 [bold]配偶者:[/bold] {'あり' if result.has_spouse else 'なし'}\n"
+            f"👶 [bold]子:[/bold] {'あり' if result.has_children else 'なし'}\n"
+            f"👴 [bold]直系尊属:[/bold] {'あり' if result.has_parents else 'なし'}\n"
+            f"👫 [bold]兄弟姉妹:[/bold] {'あり' if result.has_siblings else 'なし'}",
+            title="[bold cyan]計算サマリー[/bold cyan]",
+            border_style="cyan",
+        )
+    )
     console.print()
 
 
@@ -205,15 +210,12 @@ def display_completion(message: str = "処理が完了しました") -> None:
         message: 完了メッセージ
     """
     console.print()
-    console.print(Panel(
-        f"[bold green]{message}[/bold green]",
-        border_style="green"
-    ))
+    console.print(Panel(f"[bold green]{message}[/bold green]", border_style="green"))
     console.print()
 
 
 @contextmanager
-def progress_context(description: str = "処理中..."):
+def progress_context(description: str = "処理中...") -> Iterator[Progress]:
     """プログレス表示のコンテキストマネージャー
 
     使用例:
@@ -236,14 +238,14 @@ def progress_context(description: str = "処理中..."):
         TaskProgressColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),
-        console=console
+        console=console,
     )
 
     with progress:
         yield progress
 
 
-def display_spinner(description: str = "処理中..."):
+def display_spinner(description: str = "処理中...") -> Progress:
     """スピナー表示のコンテキストマネージャー（進捗不明な処理用）
 
     使用例:
@@ -260,15 +262,15 @@ def display_spinner(description: str = "処理中..."):
     progress = Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        console=console
+        console=console,
     )
 
-    task_id = progress.add_task(description, total=None)
+    progress.add_task(description, total=None)
     return progress
 
 
 @contextmanager
-def progress_bar(description: str, total: int):
+def progress_bar(description: str, total: int) -> Iterator[Callable[[int], None]]:
     """プログレスバー表示のコンテキストマネージャー（シンプル版）
 
     使用例:
@@ -290,20 +292,22 @@ def progress_bar(description: str, total: int):
         BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
-        console=console
+        console=console,
     )
 
     with progress:
         task = progress.add_task(description, total=total)
 
-        def update(advance: int = 1):
+        def update(advance: int = 1) -> None:
             """進捗を更新"""
             progress.update(task, advance=advance)
 
         yield update
 
 
-def display_multi_step_progress(steps: List[str]):
+def display_multi_step_progress(
+    steps: list[str],
+) -> AbstractContextManager[Callable[[str], None]]:
     """複数ステップのプログレス表示
 
     使用例:
@@ -317,31 +321,36 @@ def display_multi_step_progress(steps: List[str]):
         steps: ステップ名のリスト
 
     Returns:
-        Progress: Richのプログレスオブジェクト
+        AbstractContextManager: ステップ更新関数を返すコンテキストマネージャー
     """
     progress = Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
-        console=console
+        console=console,
     )
 
     task_id = progress.add_task("処理中...", total=len(steps))
 
     @contextmanager
-    def progress_manager():
+    def progress_manager() -> Iterator[Callable[[str], None]]:
         with progress:
-            def update_step(step_name: str):
+
+            def update_step(step_name: str) -> None:
                 """ステップを更新"""
-                progress.update(task_id, description=f"[cyan]{step_name}[/cyan]", advance=1)
+                progress.update(
+                    task_id, description=f"[cyan]{step_name}[/cyan]", advance=1
+                )
 
             yield update_step
 
     return progress_manager()
 
 
-def display_file_progress(description: str, total_files: int):
+def display_file_progress(
+    description: str, total_files: int
+) -> AbstractContextManager[Callable[[str, int], None]]:
     """ファイル処理のプログレス表示
 
     Args:
@@ -349,7 +358,7 @@ def display_file_progress(description: str, total_files: int):
         total_files: 総ファイル数
 
     Returns:
-        tuple: (Progress object, update function)
+        AbstractContextManager: ファイル更新関数を返すコンテキストマネージャー
     """
     progress = Progress(
         SpinnerColumn(),
@@ -357,15 +366,16 @@ def display_file_progress(description: str, total_files: int):
         BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
-        console=console
+        console=console,
     )
 
     task = progress.add_task(description, total=total_files)
 
     @contextmanager
-    def progress_manager():
+    def progress_manager() -> Iterator[Callable[[str, int], None]]:
         with progress:
-            def update(filename: str = "", advance: int = 1):
+
+            def update(filename: str = "", advance: int = 1) -> None:
                 """ファイル処理進捗を更新
 
                 Args:
@@ -373,7 +383,11 @@ def display_file_progress(description: str, total_files: int):
                     advance: 進捗量
                 """
                 if filename:
-                    progress.update(task, description=f"{description}: [yellow]{filename}[/yellow]", advance=advance)
+                    progress.update(
+                        task,
+                        description=f"{description}: [yellow]{filename}[/yellow]",
+                        advance=advance,
+                    )
                 else:
                     progress.update(task, advance=advance)
 

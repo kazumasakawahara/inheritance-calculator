@@ -3,10 +3,10 @@
 相続計算の作業セッションを保存・再開する機能を提供します。
 """
 import json
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
-from dataclasses import dataclass, asdict
+from typing import Any
 
 from inheritance_calculator_core.utils.logger import get_logger
 
@@ -16,26 +16,20 @@ logger = get_logger(__name__)
 @dataclass
 class Session:
     """セッションデータクラス"""
+
     session_id: str
     created_at: str
     updated_at: str
-    decedent_name: Optional[str] = None
+    decedent_name: str | None = None
     progress_percentage: int = 0
-    data: Dict[str, Any] = None
-    pending_items: Dict[str, str] = None
-
-    def __post_init__(self):
-        """初期化後の処理"""
-        if self.data is None:
-            self.data = {}
-        if self.pending_items is None:
-            self.pending_items = {}
+    data: dict[str, Any] = field(default_factory=dict)
+    pending_items: dict[str, str] = field(default_factory=dict)
 
 
 class SessionManager:
     """セッション管理クラス"""
 
-    def __init__(self, session_dir: Optional[Path] = None):
+    def __init__(self, session_dir: Path | None = None):
         """初期化
 
         Args:
@@ -53,7 +47,7 @@ class SessionManager:
         except Exception as e:
             logger.warning(f"セッションディレクトリのパーミッション設定に失敗: {e}")
 
-    def create_session(self, data: Optional[Dict[str, Any]] = None) -> Session:
+    def create_session(self, data: dict[str, Any] | None = None) -> Session:
         """新しいセッションを作成
 
         Args:
@@ -70,7 +64,7 @@ class SessionManager:
             created_at=now,
             updated_at=now,
             data=data or {},
-            pending_items={}
+            pending_items={},
         )
 
         self.save_session(session)
@@ -88,7 +82,7 @@ class SessionManager:
         session_file = self.session_dir / f"{session.session_id}.json"
 
         try:
-            with open(session_file, 'w', encoding='utf-8') as f:
+            with open(session_file, "w", encoding="utf-8") as f:
                 json.dump(asdict(session), f, ensure_ascii=False, indent=2)
 
             # セッションファイルのパーミッションを0600に設定（所有者のみ読み書き可能）
@@ -99,7 +93,7 @@ class SessionManager:
             logger.error(f"セッション保存エラー: {e}")
             raise
 
-    def load_session(self, session_id: str) -> Optional[Session]:
+    def load_session(self, session_id: str) -> Session | None:
         """セッションを読み込み
 
         Args:
@@ -115,7 +109,7 @@ class SessionManager:
             return None
 
         try:
-            with open(session_file, 'r', encoding='utf-8') as f:
+            with open(session_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             session = Session(**data)
@@ -126,7 +120,7 @@ class SessionManager:
             logger.error(f"セッション読み込みエラー: {e}")
             return None
 
-    def list_sessions(self) -> List[Session]:
+    def list_sessions(self) -> list[Session]:
         """すべてのセッションを一覧表示
 
         Returns:
@@ -136,7 +130,7 @@ class SessionManager:
 
         for session_file in self.session_dir.glob("*.json"):
             try:
-                with open(session_file, 'r', encoding='utf-8') as f:
+                with open(session_file, encoding="utf-8") as f:
                     data = json.load(f)
                 sessions.append(Session(**data))
             except Exception as e:
@@ -243,7 +237,7 @@ class SessionManager:
         """
         return len(session.pending_items) > 0
 
-    def get_pending_items(self, session: Session) -> Dict[str, str]:
+    def get_pending_items(self, session: Session) -> dict[str, str]:
         """保留項目を取得
 
         Args:

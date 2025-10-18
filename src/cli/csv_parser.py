@@ -3,10 +3,9 @@
 CSV形式から相続情報を読み込む機能を提供します。
 """
 import csv
+from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
 
 from inheritance_calculator_core.models.person import Person
 from inheritance_calculator_core.models.relationship import BloodType
@@ -16,12 +15,13 @@ from inheritance_calculator_core.utils.exceptions import ValidationError
 @dataclass
 class CSVRow:
     """CSV行データ"""
+
     role: str  # 役割: decedent, spouse, child, parent, sibling
     name: str
     is_alive: bool
-    birth_date: Optional[date]
-    death_date: Optional[date]
-    blood_type: Optional[str]  # full or half (兄弟姉妹のみ)
+    birth_date: date | None
+    death_date: date | None
+    blood_type: str | None  # full or half (兄弟姉妹のみ)
     is_renounced: bool  # 相続放棄
 
 
@@ -29,7 +29,7 @@ class CSVParser:
     """CSVパーサー"""
 
     @staticmethod
-    def parse_date(date_str: str) -> Optional[date]:
+    def parse_date(date_str: str) -> date | None:
         """日付文字列をdateオブジェクトに変換
 
         Args:
@@ -75,14 +75,16 @@ class CSVParser:
             raise ValueError(f"無効なboolean値です: {bool_str}")
 
     @classmethod
-    def parse_csv_file(cls, file_path: Path) -> Tuple[
+    def parse_csv_file(
+        cls, file_path: Path
+    ) -> tuple[
         Person,
-        List[Person],
-        List[Person],
-        List[Person],
-        List[Person],
-        List[Person],
-        Dict[str, BloodType]
+        list[Person],
+        list[Person],
+        list[Person],
+        list[Person],
+        list[Person],
+        dict[str, BloodType],
     ]:
         """CSVファイルから相続情報を読み込み
 
@@ -90,19 +92,22 @@ class CSVParser:
             file_path: CSVファイルのパス
 
         Returns:
-            (decedent, spouses, children, parents, siblings, renounced, sibling_blood_types)
+            (
+                decedent, spouses, children, parents, siblings,
+                renounced, sibling_blood_types
+            )
 
         Raises:
             ValidationError: バリデーションエラー
             ValueError: データ形式エラー
         """
-        rows: List[CSVRow] = []
+        rows: list[CSVRow] = []
 
-        with open(file_path, 'r', encoding='utf-8-sig') as f:
+        with open(file_path, encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
 
             # 必須カラムの確認
-            required_columns = ['role', 'name', 'is_alive']
+            required_columns = ["role", "name", "is_alive"]
             fieldnames = reader.fieldnames if reader.fieldnames is not None else []
             if not all(col in fieldnames for col in required_columns):
                 raise ValidationError(
@@ -112,20 +117,24 @@ class CSVParser:
             for i, csv_dict in enumerate(reader, start=2):  # ヘッダー行の次から
                 try:
                     csv_row = CSVRow(
-                        role=csv_dict['role'].strip().lower(),
-                        name=csv_dict['name'].strip(),
-                        is_alive=cls.parse_bool(csv_dict['is_alive']),
-                        birth_date=cls.parse_date(csv_dict.get('birth_date', '')),
-                        death_date=cls.parse_date(csv_dict.get('death_date', '')),
-                        blood_type=csv_dict.get('blood_type', '').strip().lower() if csv_dict.get('blood_type') else None,
-                        is_renounced=cls.parse_bool(csv_dict.get('is_renounced', 'いいえ'))
+                        role=csv_dict["role"].strip().lower(),
+                        name=csv_dict["name"].strip(),
+                        is_alive=cls.parse_bool(csv_dict["is_alive"]),
+                        birth_date=cls.parse_date(csv_dict.get("birth_date", "")),
+                        death_date=cls.parse_date(csv_dict.get("death_date", "")),
+                        blood_type=csv_dict.get("blood_type", "").strip().lower()
+                        if csv_dict.get("blood_type")
+                        else None,
+                        is_renounced=cls.parse_bool(
+                            csv_dict.get("is_renounced", "いいえ")
+                        ),
                     )
                     rows.append(csv_row)
                 except Exception as e:
                     raise ValidationError(f"行{i}のパースエラー: {str(e)}") from e
 
         # 被相続人の検索
-        decedent_rows = [r for r in rows if r.role == 'decedent']
+        decedent_rows = [r for r in rows if r.role == "decedent"]
         if len(decedent_rows) == 0:
             raise ValidationError("被相続人（decedent）が見つかりません")
         if len(decedent_rows) > 1:
@@ -137,42 +146,42 @@ class CSVParser:
             is_decedent=True,
             is_alive=False,  # 被相続人は必ず死亡
             birth_date=decedent_row.birth_date,
-            death_date=decedent_row.death_date
+            death_date=decedent_row.death_date,
         )
 
         # 各役割ごとに人物を作成
-        spouses: List[Person] = []
-        children: List[Person] = []
-        parents: List[Person] = []
-        siblings: List[Person] = []
-        renounced: List[Person] = []
-        sibling_blood_types: Dict[str, BloodType] = {}
+        spouses: list[Person] = []
+        children: list[Person] = []
+        parents: list[Person] = []
+        siblings: list[Person] = []
+        renounced: list[Person] = []
+        sibling_blood_types: dict[str, BloodType] = {}
 
         for row in rows:
-            if row.role == 'decedent':
+            if row.role == "decedent":
                 continue
 
             person = Person(
                 name=row.name,
                 is_alive=row.is_alive,
                 birth_date=row.birth_date,
-                death_date=row.death_date
+                death_date=row.death_date,
             )
 
             # 役割ごとに分類
-            if row.role == 'spouse':
+            if row.role == "spouse":
                 spouses.append(person)
-            elif row.role == 'child':
+            elif row.role == "child":
                 children.append(person)
-            elif row.role == 'parent':
+            elif row.role == "parent":
                 parents.append(person)
-            elif row.role == 'sibling':
+            elif row.role == "sibling":
                 siblings.append(person)
                 # 血縁タイプの設定
                 if row.blood_type:
-                    if row.blood_type == 'full':
+                    if row.blood_type == "full":
                         sibling_blood_types[str(person.id)] = BloodType.FULL
-                    elif row.blood_type == 'half':
+                    elif row.blood_type == "half":
                         sibling_blood_types[str(person.id)] = BloodType.HALF
                     else:
                         raise ValidationError(
@@ -188,7 +197,15 @@ class CSVParser:
             if row.is_renounced:
                 renounced.append(person)
 
-        return decedent, spouses, children, parents, siblings, renounced, sibling_blood_types
+        return (
+            decedent,
+            spouses,
+            children,
+            parents,
+            siblings,
+            renounced,
+            sibling_blood_types,
+        )
 
     @staticmethod
     def create_template_csv(file_path: Path) -> None:
@@ -198,46 +215,46 @@ class CSVParser:
             file_path: 出力先ファイルパス
         """
         headers = [
-            'role',
-            'name',
-            'is_alive',
-            'birth_date',
-            'death_date',
-            'blood_type',
-            'is_renounced'
+            "role",
+            "name",
+            "is_alive",
+            "birth_date",
+            "death_date",
+            "blood_type",
+            "is_renounced",
         ]
 
         sample_rows = [
             {
-                'role': 'decedent',
-                'name': '山田太郎',
-                'is_alive': 'いいえ',
-                'birth_date': '1950-01-01',
-                'death_date': '2025-06-15',
-                'blood_type': '',
-                'is_renounced': 'いいえ'
+                "role": "decedent",
+                "name": "山田太郎",
+                "is_alive": "いいえ",
+                "birth_date": "1950-01-01",
+                "death_date": "2025-06-15",
+                "blood_type": "",
+                "is_renounced": "いいえ",
             },
             {
-                'role': 'spouse',
-                'name': '山田花子',
-                'is_alive': 'はい',
-                'birth_date': '1955-03-10',
-                'death_date': '',
-                'blood_type': '',
-                'is_renounced': 'いいえ'
+                "role": "spouse",
+                "name": "山田花子",
+                "is_alive": "はい",
+                "birth_date": "1955-03-10",
+                "death_date": "",
+                "blood_type": "",
+                "is_renounced": "いいえ",
             },
             {
-                'role': 'child',
-                'name': '山田一郎',
-                'is_alive': 'はい',
-                'birth_date': '1980-05-20',
-                'death_date': '',
-                'blood_type': '',
-                'is_renounced': 'いいえ'
+                "role": "child",
+                "name": "山田一郎",
+                "is_alive": "はい",
+                "birth_date": "1980-05-20",
+                "death_date": "",
+                "blood_type": "",
+                "is_renounced": "いいえ",
             },
         ]
 
-        with open(file_path, 'w', encoding='utf-8-sig', newline='') as f:
+        with open(file_path, "w", encoding="utf-8-sig", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=headers)
             writer.writeheader()
             writer.writerows(sample_rows)

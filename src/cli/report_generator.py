@@ -2,20 +2,16 @@
 
 PDF・Markdown・CSV形式でのレポート出力機能を提供します。
 """
-from pathlib import Path
-from datetime import datetime
-from typing import Optional
 import csv
-
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from datetime import datetime
+from pathlib import Path
 
 from inheritance_calculator_core.models.inheritance import InheritanceResult
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 class ReportGenerator:
@@ -33,15 +29,22 @@ class ReportGenerator:
 
         # ヘッダー
         lines.append("# 相続計算レポート\n")
-        lines.append(f"**作成日時**: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}\n\n")
+        lines.append(
+            f"**作成日時**: {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}\n\n"
+        )
 
         # 被相続人情報
         lines.append("## 被相続人情報\n")
         lines.append(f"- **氏名**: {result.decedent.name}\n")
         if result.decedent.birth_date:
-            lines.append(f"- **生年月日**: {result.decedent.birth_date.strftime('%Y年%m月%d日')}\n")
+            lines.append(
+                f"- **生年月日**: "
+                f"{result.decedent.birth_date.strftime('%Y年%m月%d日')}\n"
+            )
         if result.decedent.death_date:
-            lines.append(f"- **死亡日**: {result.decedent.death_date.strftime('%Y年%m月%d日')}\n")
+            lines.append(
+                f"- **死亡日**: {result.decedent.death_date.strftime('%Y年%m月%d日')}\n"
+            )
             age = result.decedent.age_at_death
             if age is not None:
                 lines.append(f"- **享年**: {age}歳\n")
@@ -72,15 +75,14 @@ class ReportGenerator:
                 "spouse": "配偶者",
                 "first": "第1順位",
                 "second": "第2順位",
-                "third": "第3順位"
+                "third": "第3順位",
             }.get(heir.rank.value, heir.rank.value)
 
             relation = heir.rank.value
             if heir.substitution_type:
-                sub_type_name = {
-                    "child": "子の代襲",
-                    "sibling": "兄弟姉妹の代襲"
-                }.get(heir.substitution_type.value, "代襲")
+                sub_type_name = {"child": "子の代襲", "sibling": "兄弟姉妹の代襲"}.get(
+                    heir.substitution_type.value, "代襲"
+                )
                 relation += f" ({sub_type_name})"
 
             lines.append(
@@ -92,7 +94,8 @@ class ReportGenerator:
 
         # 連絡先情報（データがある場合のみ表示）
         heirs_with_contact = [
-            heir for heir in result.heirs
+            heir
+            for heir in result.heirs
             if heir.person.address or heir.person.phone or heir.person.email
         ]
 
@@ -120,11 +123,13 @@ class ReportGenerator:
         # 注記
         lines.append("## 注記\n")
         lines.append("- このレポートは相続実務の補助ツールとして作成されたものです。\n")
-        lines.append("- 実際の相続手続きは専門家（弁護士、司法書士等）に相談してください。\n")
+        lines.append(
+            "- 実際の相続手続きは専門家（弁護士、司法書士等）に相談してください。\n"
+        )
         lines.append("- 計算結果は日本の民法第5編「相続」に基づいています。\n")
 
         # ファイル書き込み
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.writelines(lines)
 
     @staticmethod
@@ -139,10 +144,10 @@ class ReportGenerator:
         doc = SimpleDocTemplate(
             str(output_path),
             pagesize=A4,
-            rightMargin=20*mm,
-            leftMargin=20*mm,
-            topMargin=20*mm,
-            bottomMargin=20*mm,
+            rightMargin=20 * mm,
+            leftMargin=20 * mm,
+            topMargin=20 * mm,
+            bottomMargin=20 * mm,
         )
 
         # ストーリー（コンテンツ）
@@ -151,25 +156,25 @@ class ReportGenerator:
         # スタイル設定
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
+            "CustomTitle",
+            parent=styles["Heading1"],
             fontSize=18,
             spaceAfter=12,
         )
         heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
+            "CustomHeading",
+            parent=styles["Heading2"],
             fontSize=14,
             spaceAfter=10,
         )
-        normal_style = styles['Normal']
+        normal_style = styles["Normal"]
 
         # タイトル
         story.append(Paragraph("相続計算レポート", title_style))
         story.append(Spacer(1, 12))
 
         # 作成日時
-        created_at = datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')
+        created_at = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
         story.append(Paragraph(f"作成日時: {created_at}", normal_style))
         story.append(Spacer(1, 20))
 
@@ -204,16 +209,20 @@ class ReportGenerator:
             ["兄弟姉妹", "あり" if result.has_siblings else "なし"],
         ]
 
-        summary_table = Table(summary_data, colWidths=[60*mm, 60*mm])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ]))
+        summary_table = Table(summary_data, colWidths=[60 * mm, 60 * mm])
+        summary_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (0, -1), colors.lightgrey),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), colors.black),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ]
+            )
+        )
         story.append(summary_table)
         story.append(Spacer(1, 15))
 
@@ -224,7 +233,8 @@ class ReportGenerator:
 
         # 連絡先情報がある相続人を収集
         heirs_with_contact = [
-            heir for heir in result.heirs
+            heir
+            for heir in result.heirs
             if heir.person.address or heir.person.phone or heir.person.email
         ]
 
@@ -239,40 +249,47 @@ class ReportGenerator:
                 "spouse": "配偶者",
                 "first": "第1順位",
                 "second": "第2順位",
-                "third": "第3順位"
+                "third": "第3順位",
             }.get(heir.rank.value, heir.rank.value)
 
             relation = heir.rank.value
             if heir.substitution_type:
-                sub_type_name = {
-                    "child": "子の代襲",
-                    "sibling": "兄弟姉妹の代襲"
-                }.get(heir.substitution_type.value, "代襲")
+                sub_type_name = {"child": "子の代襲", "sibling": "兄弟姉妹の代襲"}.get(
+                    heir.substitution_type.value, "代襲"
+                )
                 relation += f"\n({sub_type_name})"
 
-            heir_data.append([
-                person_name,
-                relation,
-                rank_name,
-                str(heir.share),
-                f"{heir.share_percentage:.2f}%"
-            ])
+            heir_data.append(
+                [
+                    person_name,
+                    relation,
+                    rank_name,
+                    str(heir.share),
+                    f"{heir.share_percentage:.2f}%",
+                ]
+            )
 
-        heir_table = Table(heir_data, colWidths=[40*mm, 30*mm, 30*mm, 35*mm, 35*mm])
-        heir_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
-            ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ]))
+        heir_table = Table(
+            heir_data, colWidths=[40 * mm, 30 * mm, 30 * mm, 35 * mm, 35 * mm]
+        )
+        heir_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                    ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, 0), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                    ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
+                    ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                    ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+                    ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ]
+            )
+        )
         story.append(heir_table)
         story.append(Spacer(1, 15))
 
@@ -283,30 +300,38 @@ class ReportGenerator:
             contact_data = [["氏名", "住所", "電話番号", "メールアドレス"]]
 
             for heir in heirs_with_contact:
-                contact_data.append([
-                    heir.person.name,
-                    heir.person.address or "-",
-                    heir.person.phone or "-",
-                    heir.person.email or "-"
-                ])
+                contact_data.append(
+                    [
+                        heir.person.name,
+                        heir.person.address or "-",
+                        heir.person.phone or "-",
+                        heir.person.email or "-",
+                    ]
+                )
 
-            contact_table = Table(contact_data, colWidths=[40*mm, 50*mm, 35*mm, 45*mm])
-            contact_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('ALIGN', (0, 0), (0, -1), 'CENTER'),
-                ('ALIGN', (1, 1), (1, -1), 'LEFT'),
-                ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ]))
+            contact_table = Table(
+                contact_data, colWidths=[40 * mm, 50 * mm, 35 * mm, 45 * mm]
+            )
+            contact_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 10),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("TEXTCOLOR", (0, 1), (-1, -1), colors.black),
+                        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                        ("FONTSIZE", (0, 1), (-1, -1), 8),
+                        ("ALIGN", (0, 0), (0, -1), "CENTER"),
+                        ("ALIGN", (1, 1), (1, -1), "LEFT"),
+                        ("ALIGN", (2, 1), (-1, -1), "CENTER"),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(contact_table)
             story.append(Spacer(1, 15))
 
@@ -339,32 +364,39 @@ class ReportGenerator:
         """
         # 連絡先情報がある相続人のみ抽出
         heirs_with_contact = [
-            heir for heir in result.heirs
+            heir
+            for heir in result.heirs
             if heir.person.address or heir.person.phone or heir.person.email
         ]
 
         if not heirs_with_contact:
             # 連絡先情報がない場合は空のCSVを作成
-            with open(output_path, 'w', encoding='utf-8-sig', newline='') as f:
+            with open(output_path, "w", encoding="utf-8-sig", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(["氏名", "続柄", "住所", "電話番号", "メールアドレス", "備考"])
-                writer.writerow(["", "", "", "", "", "連絡先情報が登録されている相続人はありません"])
+                writer.writerow(
+                    ["氏名", "続柄", "住所", "電話番号", "メールアドレス", "備考"]
+                )
+                writer.writerow(
+                    ["", "", "", "", "", "連絡先情報が登録されている相続人はありません"]
+                )
             return
 
-        with open(output_path, 'w', encoding='utf-8-sig', newline='') as f:
+        with open(output_path, "w", encoding="utf-8-sig", newline="") as f:
             writer = csv.writer(f)
 
             # ヘッダー行
-            writer.writerow([
-                "氏名",
-                "続柄",
-                "相続順位",
-                "相続割合（分数）",
-                "相続割合（%）",
-                "住所",
-                "電話番号",
-                "メールアドレス"
-            ])
+            writer.writerow(
+                [
+                    "氏名",
+                    "続柄",
+                    "相続順位",
+                    "相続割合（分数）",
+                    "相続割合（%）",
+                    "住所",
+                    "電話番号",
+                    "メールアドレス",
+                ]
+            )
 
             # データ行
             for heir in heirs_with_contact:
@@ -372,24 +404,26 @@ class ReportGenerator:
                     "spouse": "配偶者",
                     "first": "第1順位",
                     "second": "第2順位",
-                    "third": "第3順位"
+                    "third": "第3順位",
                 }.get(heir.rank.value, heir.rank.value)
 
                 relation = heir.rank.value
                 if heir.substitution_type:
                     sub_type_name = {
                         "child": "子の代襲",
-                        "sibling": "兄弟姉妹の代襲"
+                        "sibling": "兄弟姉妹の代襲",
                     }.get(heir.substitution_type.value, "代襲")
                     relation += f"（{sub_type_name}）"
 
-                writer.writerow([
-                    heir.person.name,
-                    relation,
-                    rank_name,
-                    str(heir.share),
-                    f"{heir.share_percentage:.2f}",
-                    heir.person.address or "",
-                    heir.person.phone or "",
-                    heir.person.email or ""
-                ])
+                writer.writerow(
+                    [
+                        heir.person.name,
+                        relation,
+                        rank_name,
+                        str(heir.share),
+                        f"{heir.share_percentage:.2f}",
+                        heir.person.address or "",
+                        heir.person.phone or "",
+                        heir.person.email or "",
+                    ]
+                )

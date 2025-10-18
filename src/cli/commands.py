@@ -3,27 +3,29 @@
 各サブコマンドの実装を提供します。
 """
 import sys
-import json
-from pathlib import Path
-from typing import Optional, Any, List, Dict
 from argparse import Namespace
-from rich.console import Console
+from pathlib import Path
+from typing import Any
 
-from src.cli.display import display_result, display_error, display_info
-from src.cli.csv_parser import CSVParser
-from src.cli.report_generator import ReportGenerator
-from src.cli.family_tree_generator import FamilyTreeGenerator
-from src.cli.contact_input import ContactInfoCollector
-from inheritance_calculator_core.services.inheritance_calculator import InheritanceCalculator
+from inheritance_calculator_core.models.inheritance import InheritanceResult
 from inheritance_calculator_core.models.person import Person
 from inheritance_calculator_core.models.relationship import BloodType
-from inheritance_calculator_core.models.inheritance import InheritanceResult
-from inheritance_calculator_core.utils.exceptions import (
-    InheritanceCalculatorError,
-    ValidationError,
-    DatabaseException,
-    ServiceException
+from inheritance_calculator_core.services.inheritance_calculator import (
+    InheritanceCalculator,
 )
+from inheritance_calculator_core.utils.exceptions import (
+    DatabaseException,
+    InheritanceCalculatorError,
+    ServiceException,
+    ValidationError,
+)
+from rich.console import Console
+
+from src.cli.contact_input import ContactInfoCollector
+from src.cli.csv_parser import CSVParser
+from src.cli.display import display_error, display_info, display_result
+from src.cli.family_tree_generator import FamilyTreeGenerator
+from src.cli.report_generator import ReportGenerator
 
 console = Console()
 
@@ -31,17 +33,17 @@ console = Console()
 def handle_post_calculation(
     result: InheritanceResult,
     collect_contact: bool = True,
-    output_file: Optional[Path] = None,
+    output_file: Path | None = None,
     save_neo4j: bool = False,
-    decedent: Optional[Person] = None,
-    spouses: Optional[List[Person]] = None,
-    children: Optional[List[Person]] = None,
-    parents: Optional[List[Person]] = None,
-    siblings: Optional[List[Person]] = None,
-    renounced: Optional[List[Person]] = None,
-    disqualified: Optional[List[Person]] = None,
-    disinherited: Optional[List[Person]] = None,
-    sibling_blood_types: Optional[Dict[str, BloodType]] = None
+    decedent: Person | None = None,
+    spouses: list[Person] | None = None,
+    children: list[Person] | None = None,
+    parents: list[Person] | None = None,
+    siblings: list[Person] | None = None,
+    renounced: list[Person] | None = None,
+    disqualified: list[Person] | None = None,
+    disinherited: list[Person] | None = None,
+    sibling_blood_types: dict[str, BloodType] | None = None,
 ) -> None:
     """相続計算後の処理（連絡先収集、レポート生成、Neo4j保存）
 
@@ -79,16 +81,23 @@ def handle_post_calculation(
         display_info(f"結果を {output_file} に出力しました。")
 
         # CSV連絡先エクスポート（オプション）
-        if output_file.suffix.lower() in ['.md', '.pdf']:
+        if output_file.suffix.lower() in [".md", ".pdf"]:
             from rich.prompt import Confirm
+
             if Confirm.ask("連絡先情報のCSVもエクスポートしますか？", default=False):
                 csv_path = output_file.parent / f"{output_file.stem}_contacts.csv"
                 ReportGenerator.export_contact_csv(result, csv_path)
                 display_info(f"連絡先情報を {csv_path} に出力しました。")
 
     # Neo4jに保存
-    if save_neo4j and all([decedent, spouses is not None, children is not None,
-                           parents is not None, siblings is not None]):
+    if (
+        save_neo4j
+        and decedent is not None
+        and spouses is not None
+        and children is not None
+        and parents is not None
+        and siblings is not None
+    ):
         save_to_neo4j(
             decedent=decedent,
             spouses=spouses,
@@ -99,7 +108,7 @@ def handle_post_calculation(
             disqualified=disqualified or [],
             disinherited=disinherited or [],
             sibling_blood_types=sibling_blood_types or {},
-            result=result
+            result=result,
         )
 
 
@@ -113,14 +122,14 @@ def calculate_command(args: Namespace) -> int:
         終了コード（0: 成功、1以上: エラー）
     """
     try:
-        save_neo4j = getattr(args, 'save_to_neo4j', False)
+        save_neo4j = getattr(args, "save_to_neo4j", False)
 
         if args.input_file:
             # ファイル拡張子で形式を判定
             file_ext = args.input_file.suffix.lower()
-            if file_ext == '.csv':
+            if file_ext == ".csv":
                 return calculate_from_csv(args.input_file, args.output, save_neo4j)
-            elif file_ext == '.json':
+            elif file_ext == ".json":
                 return calculate_from_file(args.input_file, args.output, save_neo4j)
             else:
                 display_error(f"サポートされていないファイル形式です: {file_ext}")
@@ -147,7 +156,9 @@ def calculate_command(args: Namespace) -> int:
         return 1
 
 
-def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, save_neo4j: bool = False) -> int:
+def calculate_from_file(
+    input_file: Path, output_file: Path | None = None, save_neo4j: bool = False
+) -> int:
     """ファイルから相続計算を実行
 
     Args:
@@ -160,72 +171,95 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, sa
     """
     import json
     from datetime import date
+
     from inheritance_calculator_core.models.person import Person
     from inheritance_calculator_core.models.relationship import BloodType
 
     try:
         # JSONファイルを読み込み
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(input_file, encoding="utf-8") as f:
             data = json.load(f)
 
         # 被相続人の作成
-        decedent_data = data['decedent']
+        decedent_data = data["decedent"]
         decedent = Person(
-            name=decedent_data['name'],
+            name=decedent_data["name"],
             is_decedent=True,
             is_alive=False,
-            birth_date=date.fromisoformat(decedent_data.get('birth_date')) if decedent_data.get('birth_date') else None,
-            death_date=date.fromisoformat(decedent_data['death_date'])
+            birth_date=(
+                date.fromisoformat(decedent_data.get("birth_date"))
+                if decedent_data.get("birth_date")
+                else None
+            ),
+            death_date=date.fromisoformat(decedent_data["death_date"]),
         )
 
         # 相続人候補の作成
         spouses = []
-        for spouse_data in data.get('spouses', []):
+        for spouse_data in data.get("spouses", []):
             spouse = Person(
-                name=spouse_data['name'],
-                is_alive=spouse_data.get('is_alive', True),
-                birth_date=date.fromisoformat(spouse_data.get('birth_date')) if spouse_data.get('birth_date') else None,
-                death_date=date.fromisoformat(spouse_data.get('death_date')) if spouse_data.get('death_date') else None
+                name=spouse_data["name"],
+                is_alive=spouse_data.get("is_alive", True),
+                birth_date=date.fromisoformat(spouse_data.get("birth_date"))
+                if spouse_data.get("birth_date")
+                else None,
+                death_date=date.fromisoformat(spouse_data.get("death_date"))
+                if spouse_data.get("death_date")
+                else None,
             )
             spouses.append(spouse)
 
         children = []
-        for child_data in data.get('children', []):
+        for child_data in data.get("children", []):
             child = Person(
-                name=child_data['name'],
-                is_alive=child_data.get('is_alive', True),
-                birth_date=date.fromisoformat(child_data.get('birth_date')) if child_data.get('birth_date') else None,
-                death_date=date.fromisoformat(child_data.get('death_date')) if child_data.get('death_date') else None
+                name=child_data["name"],
+                is_alive=child_data.get("is_alive", True),
+                birth_date=date.fromisoformat(child_data.get("birth_date"))
+                if child_data.get("birth_date")
+                else None,
+                death_date=date.fromisoformat(child_data.get("death_date"))
+                if child_data.get("death_date")
+                else None,
             )
             children.append(child)
 
         parents = []
-        for parent_data in data.get('parents', []):
+        for parent_data in data.get("parents", []):
             parent = Person(
-                name=parent_data['name'],
-                is_alive=parent_data.get('is_alive', True),
-                birth_date=date.fromisoformat(parent_data.get('birth_date')) if parent_data.get('birth_date') else None,
-                death_date=date.fromisoformat(parent_data.get('death_date')) if parent_data.get('death_date') else None
+                name=parent_data["name"],
+                is_alive=parent_data.get("is_alive", True),
+                birth_date=date.fromisoformat(parent_data.get("birth_date"))
+                if parent_data.get("birth_date")
+                else None,
+                death_date=date.fromisoformat(parent_data.get("death_date"))
+                if parent_data.get("death_date")
+                else None,
             )
             parents.append(parent)
 
         siblings = []
         sibling_blood_types = {}
-        for sibling_data in data.get('siblings', []):
+        for sibling_data in data.get("siblings", []):
             sibling = Person(
-                name=sibling_data['name'],
-                is_alive=sibling_data.get('is_alive', True),
-                birth_date=date.fromisoformat(sibling_data.get('birth_date')) if sibling_data.get('birth_date') else None,
-                death_date=date.fromisoformat(sibling_data.get('death_date')) if sibling_data.get('death_date') else None
+                name=sibling_data["name"],
+                is_alive=sibling_data.get("is_alive", True),
+                birth_date=date.fromisoformat(sibling_data.get("birth_date"))
+                if sibling_data.get("birth_date")
+                else None,
+                death_date=date.fromisoformat(sibling_data.get("death_date"))
+                if sibling_data.get("death_date")
+                else None,
             )
             siblings.append(sibling)
 
             # 血縁タイプの設定
-            blood_type_str = sibling_data.get('blood_type', 'full')
-            sibling_blood_types[str(sibling.id)] = BloodType.FULL if blood_type_str == 'full' else BloodType.HALF
+            blood_type_str = sibling_data.get("blood_type", "full")
+            sibling_blood_types[str(sibling.id)] = (
+                BloodType.FULL if blood_type_str == "full" else BloodType.HALF
+            )
 
         # 相続放棄者の名前リストを取得
-        renounced_names = data.get('renounced', [])
+        renounced_names = data.get("renounced", [])
         renounced = []
         all_persons = spouses + children + parents + siblings
         for name in renounced_names:
@@ -242,7 +276,7 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, sa
             parents=parents,
             siblings=siblings,
             renounced=renounced if renounced else None,
-            sibling_blood_types=sibling_blood_types if sibling_blood_types else None
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else None,
         )
 
         # 結果の表示
@@ -262,7 +296,7 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, sa
             renounced=renounced,
             disqualified=[],
             disinherited=[],
-            sibling_blood_types=sibling_blood_types if sibling_blood_types else {}
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else {},
         )
 
         return 0
@@ -281,7 +315,9 @@ def calculate_from_file(input_file: Path, output_file: Optional[Path] = None, sa
         return 1
 
 
-def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, save_neo4j: bool = False) -> int:
+def calculate_from_csv(
+    input_file: Path, output_file: Path | None = None, save_neo4j: bool = False
+) -> int:
     """CSVファイルから相続計算を実行
 
     Args:
@@ -294,8 +330,15 @@ def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, sav
     """
     try:
         # CSVファイルを読み込み
-        decedent, spouses, children, parents, siblings, renounced, sibling_blood_types = \
-            CSVParser.parse_csv_file(input_file)
+        (
+            decedent,
+            spouses,
+            children,
+            parents,
+            siblings,
+            renounced,
+            sibling_blood_types,
+        ) = CSVParser.parse_csv_file(input_file)
 
         # 相続計算の実行
         calculator = InheritanceCalculator()
@@ -306,7 +349,7 @@ def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, sav
             parents=parents,
             siblings=siblings,
             renounced=renounced if renounced else None,
-            sibling_blood_types=sibling_blood_types if sibling_blood_types else None
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else None,
         )
 
         # 結果の表示
@@ -326,7 +369,7 @@ def calculate_from_csv(input_file: Path, output_file: Optional[Path] = None, sav
             renounced=renounced,
             disqualified=[],
             disinherited=[],
-            sibling_blood_types=sibling_blood_types if sibling_blood_types else {}
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else {},
         )
 
         return 0
@@ -387,7 +430,7 @@ def export_result(result: Any, output_file: Path) -> None:
     # ファイル拡張子で出力形式を判定
     file_ext = output_file.suffix.lower()
 
-    if file_ext == '.json':
+    if file_ext == ".json":
         # JSON形式
         output_data = {
             "decedent": str(result.decedent),
@@ -401,25 +444,25 @@ def export_result(result: Any, output_file: Path) -> None:
                     "name": str(heir.person),
                     "rank": heir.rank.value,
                     "share": str(heir.share),
-                    "share_percentage": float(heir.share_percentage)
+                    "share_percentage": float(heir.share_percentage),
                 }
                 for heir in result.heirs
             ],
-            "calculation_basis": result.calculation_basis
+            "calculation_basis": result.calculation_basis,
         }
 
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(output_data, f, ensure_ascii=False, indent=2)
 
-    elif file_ext == '.md':
+    elif file_ext == ".md":
         # Markdown形式
         ReportGenerator.generate_markdown(result, output_file)
 
-    elif file_ext == '.pdf':
+    elif file_ext == ".pdf":
         # PDF形式
         ReportGenerator.generate_pdf(result, output_file)
 
-    elif file_ext == '.csv':
+    elif file_ext == ".csv":
         # CSV形式（連絡先情報）
         ReportGenerator.export_contact_csv(result, output_file)
 
@@ -429,15 +472,15 @@ def export_result(result: Any, output_file: Path) -> None:
 
 def save_to_neo4j(
     decedent: Person,
-    spouses: List[Person],
-    children: List[Person],
-    parents: List[Person],
-    siblings: List[Person],
-    renounced: List[Person],
-    disqualified: List[Person],
-    disinherited: List[Person],
-    sibling_blood_types: Dict[str, BloodType],
-    result: InheritanceResult
+    spouses: list[Person],
+    children: list[Person],
+    parents: list[Person],
+    siblings: list[Person],
+    renounced: list[Person],
+    disqualified: list[Person],
+    disinherited: list[Person],
+    sibling_blood_types: dict[str, BloodType],
+    result: InheritanceResult,
 ) -> None:
     """相続ケースをNeo4jに保存
 
@@ -479,7 +522,7 @@ def save_to_neo4j(
                 disqualified=disqualified,
                 disinherited=disinherited,
                 sibling_blood_types=sibling_blood_types,
-                result=result
+                result=result,
             )
 
             display_info("✅ Neo4jに保存しました")
@@ -505,22 +548,22 @@ def validate_command(args: Namespace) -> int:
     import json
 
     try:
-        with open(args.input_file, 'r', encoding='utf-8') as f:
+        with open(args.input_file, encoding="utf-8") as f:
             data = json.load(f)
 
         # 必須フィールドの検証
-        required_fields = ['decedent']
+        required_fields = ["decedent"]
         for field in required_fields:
             if field not in data:
                 display_error(f"必須フィールドが不足しています: {field}")
                 return 1
 
         # 被相続人の検証
-        decedent = data['decedent']
-        if 'name' not in decedent:
+        decedent = data["decedent"]
+        if "name" not in decedent:
             display_error("被相続人の氏名が不足しています")
             return 1
-        if 'death_date' not in decedent:
+        if "death_date" not in decedent:
             display_error("被相続人の死亡日が不足しています")
             return 1
 
@@ -557,7 +600,7 @@ def template_command(args: Namespace) -> int:
     try:
         output_file = args.output_file
 
-        if output_file.suffix.lower() == '.csv':
+        if output_file.suffix.lower() == ".csv":
             CSVParser.create_template_csv(output_file)
             display_info(f"CSVテンプレートを作成しました: {output_file}")
         else:
@@ -570,7 +613,7 @@ def template_command(args: Namespace) -> int:
     except PermissionError as e:
         display_error(f"ファイルへの書き込み権限がありません: {str(e)}")
         return 1
-    except IOError as e:
+    except OSError as e:
         display_error(f"ファイル書き込みエラー: {str(e)}")
         return 1
     except Exception as e:
@@ -589,11 +632,11 @@ def demo_command(args: Namespace) -> int:
         終了コード
     """
     try:
-        if args.type == 'basic':
+        if args.type == "basic":
             from examples.demo_basic_cases import main as demo_main
-        elif args.type == 'complex':
+        elif args.type == "complex":
             from examples.demo_complex_cases import main as demo_main
-        elif args.type == 'interactive':
+        elif args.type == "interactive":
             from examples.demo_interactive import main as demo_main
         else:
             display_error(f"不明なデモタイプ: {args.type}")
@@ -628,72 +671,100 @@ def tree_command(args: Namespace) -> int:
     """
     try:
         # 入力ファイルから計算
-        if args.input_file.suffix.lower() == '.csv':
-            decedent, spouses, children, parents, siblings, renounced, sibling_blood_types = \
-                CSVParser.parse_csv_file(args.input_file)
+        if args.input_file.suffix.lower() == ".csv":
+            (
+                decedent,
+                spouses,
+                children,
+                parents,
+                siblings,
+                renounced,
+                sibling_blood_types,
+            ) = CSVParser.parse_csv_file(args.input_file)
         else:
             # JSON形式の読み込み（calculate_from_fileと同様）
             import json
             from datetime import date
+
             from inheritance_calculator_core.models.person import Person
             from inheritance_calculator_core.models.relationship import BloodType
 
-            with open(args.input_file, 'r', encoding='utf-8') as f:
+            with open(args.input_file, encoding="utf-8") as f:
                 data = json.load(f)
 
-            decedent_data = data['decedent']
+            decedent_data = data["decedent"]
             decedent = Person(
-                name=decedent_data['name'],
+                name=decedent_data["name"],
                 is_decedent=True,
                 is_alive=False,
-                birth_date=date.fromisoformat(decedent_data.get('birth_date')) if decedent_data.get('birth_date') else None,
-                death_date=date.fromisoformat(decedent_data['death_date'])
+                birth_date=date.fromisoformat(decedent_data.get("birth_date"))
+                if decedent_data.get("birth_date")
+                else None,
+                death_date=date.fromisoformat(decedent_data["death_date"]),
             )
 
             spouses = []
-            for spouse_data in data.get('spouses', []):
+            for spouse_data in data.get("spouses", []):
                 spouse = Person(
-                    name=spouse_data['name'],
-                    is_alive=spouse_data.get('is_alive', True),
-                    birth_date=date.fromisoformat(spouse_data.get('birth_date')) if spouse_data.get('birth_date') else None,
-                    death_date=date.fromisoformat(spouse_data.get('death_date')) if spouse_data.get('death_date') else None
+                    name=spouse_data["name"],
+                    is_alive=spouse_data.get("is_alive", True),
+                    birth_date=date.fromisoformat(spouse_data.get("birth_date"))
+                    if spouse_data.get("birth_date")
+                    else None,
+                    death_date=date.fromisoformat(spouse_data.get("death_date"))
+                    if spouse_data.get("death_date")
+                    else None,
                 )
                 spouses.append(spouse)
 
             children = []
-            for child_data in data.get('children', []):
+            for child_data in data.get("children", []):
                 child = Person(
-                    name=child_data['name'],
-                    is_alive=child_data.get('is_alive', True),
-                    birth_date=date.fromisoformat(child_data.get('birth_date')) if child_data.get('birth_date') else None,
-                    death_date=date.fromisoformat(child_data.get('death_date')) if child_data.get('death_date') else None
+                    name=child_data["name"],
+                    is_alive=child_data.get("is_alive", True),
+                    birth_date=date.fromisoformat(child_data.get("birth_date"))
+                    if child_data.get("birth_date")
+                    else None,
+                    death_date=date.fromisoformat(child_data.get("death_date"))
+                    if child_data.get("death_date")
+                    else None,
                 )
                 children.append(child)
 
             parents = []
-            for parent_data in data.get('parents', []):
+            for parent_data in data.get("parents", []):
                 parent = Person(
-                    name=parent_data['name'],
-                    is_alive=parent_data.get('is_alive', True),
-                    birth_date=date.fromisoformat(parent_data.get('birth_date')) if parent_data.get('birth_date') else None,
-                    death_date=date.fromisoformat(parent_data.get('death_date')) if parent_data.get('death_date') else None
+                    name=parent_data["name"],
+                    is_alive=parent_data.get("is_alive", True),
+                    birth_date=date.fromisoformat(parent_data.get("birth_date"))
+                    if parent_data.get("birth_date")
+                    else None,
+                    death_date=date.fromisoformat(parent_data.get("death_date"))
+                    if parent_data.get("death_date")
+                    else None,
                 )
                 parents.append(parent)
 
             siblings = []
             sibling_blood_types = {}
-            for sibling_data in data.get('siblings', []):
+            for sibling_data in data.get("siblings", []):
                 sibling = Person(
-                    name=sibling_data['name'],
-                    is_alive=sibling_data.get('is_alive', True),
-                    birth_date=date.fromisoformat(sibling_data.get('birth_date')) if sibling_data.get('birth_date') else None,
-                    death_date=date.fromisoformat(sibling_data.get('death_date')) if sibling_data.get('death_date') else None
+                    name=sibling_data["name"],
+                    is_alive=sibling_data.get("is_alive", True),
+                    birth_date=date.fromisoformat(sibling_data.get("birth_date"))
+                    if sibling_data.get("birth_date")
+                    else None,
+                    death_date=date.fromisoformat(sibling_data.get("death_date"))
+                    if sibling_data.get("death_date")
+                    else None,
                 )
                 siblings.append(sibling)
-                blood_type_str = sibling_data.get('blood_type', 'full')
-                sibling_blood_types[str(sibling.id)] = BloodType.FULL if blood_type_str == 'full' else BloodType.HALF
+                blood_type_str = sibling_data.get("blood_type", "full")
+                sibling_blood_types[str(sibling.id)] = (
+                    BloodType.FULL if blood_type_str == "full" else BloodType.HALF
+                )
 
-            renounced_names = data.get('renounced', [])
+            renounced_names = data.get("renounced", [])
             renounced = []
             all_persons = spouses + children + parents + siblings
             for name in renounced_names:
@@ -710,20 +781,20 @@ def tree_command(args: Namespace) -> int:
             parents=parents,
             siblings=siblings,
             renounced=renounced if renounced else None,
-            sibling_blood_types=sibling_blood_types if sibling_blood_types else None
+            sibling_blood_types=sibling_blood_types if sibling_blood_types else None,
         )
 
         # 家系図の生成
         output_path = args.output_file
         file_ext = output_path.suffix.lower()
 
-        if file_ext == '.txt':
+        if file_ext == ".txt":
             # テキスト形式
             tree_text = FamilyTreeGenerator.generate_text_tree(result, output_path)
             console.print(tree_text)
             display_info(f"テキスト形式の家系図を {output_path} に出力しました。")
 
-        elif file_ext == '.mmd' or file_ext == '.md':
+        elif file_ext == ".mmd" or file_ext == ".md":
             # Mermaid形式
             FamilyTreeGenerator.generate_mermaid(result, output_path)
             display_info(f"Mermaid形式の家系図を {output_path} に出力しました。")
@@ -731,15 +802,19 @@ def tree_command(args: Namespace) -> int:
 
         else:
             # Graphviz形式（拡張子なしまたはpng, pdf, svgなど）
-            format_type = file_ext[1:] if file_ext else 'png'
-            if format_type not in ['png', 'pdf', 'svg', 'jpg']:
-                format_type = 'png'
+            format_type = file_ext[1:] if file_ext else "png"
+            if format_type not in ["png", "pdf", "svg", "jpg"]:
+                format_type = "png"
 
             # 拡張子を除いたパス
             output_stem = output_path.parent / output_path.stem
 
-            FamilyTreeGenerator.generate_graphviz(result, output_stem, format=format_type)
-            display_info(f"Graphviz形式の家系図を {output_stem}.{format_type} に出力しました。")
+            FamilyTreeGenerator.generate_graphviz(
+                result, output_stem, format=format_type
+            )
+            display_info(
+                f"Graphviz形式の家系図を {output_stem}.{format_type} に出力しました。"
+            )
 
         return 0
 
@@ -786,11 +861,17 @@ def interview_command(args: Namespace) -> int:
     from rich.prompt import Prompt
 
     try:
-        console.print("\n[bold cyan]═══════════════════════════════════════[/bold cyan]")
+        console.print(
+            "\n[bold cyan]═══════════════════════════════════════[/bold cyan]"
+        )
         console.print("[bold cyan]  AI対話型相続情報収集システム[/bold cyan]")
-        console.print("[bold cyan]═══════════════════════════════════════[/bold cyan]\n")
+        console.print(
+            "[bold cyan]═══════════════════════════════════════[/bold cyan]\n"
+        )
 
-        console.print("[yellow]※ Ollamaサーバー (gpt-oss:20b) に接続します...[/yellow]\n")
+        console.print(
+            "[yellow]※ Ollamaサーバー (gpt-oss:20b) に接続します...[/yellow]\n"
+        )
 
         # InterviewAgentの初期化
         agent = InterviewAgent()
@@ -843,7 +924,7 @@ def interview_command(args: Namespace) -> int:
                 result=result,
                 collect_contact=True,
                 output_file=output_path,
-                save_neo4j=getattr(args, 'save_to_neo4j', False),
+                save_neo4j=getattr(args, "save_to_neo4j", False),
                 decedent=collected_data["decedent"],
                 spouses=collected_data["spouses"],
                 children=collected_data["children"],
@@ -852,7 +933,7 @@ def interview_command(args: Namespace) -> int:
                 renounced=collected_data["renounced"],
                 disqualified=collected_data["disqualified"],
                 disinherited=collected_data["disinherited"],
-                sibling_blood_types=collected_data["sibling_blood_types"]
+                sibling_blood_types=collected_data["sibling_blood_types"],
             )
 
             return 0

@@ -2,8 +2,12 @@
 
 ターミナルで表示可能なASCIIアート形式の家系図を生成します。
 """
-from typing import List, Dict, Optional
-from inheritance_calculator_core.models.inheritance import InheritanceResult, HeritageRank
+from typing import Any
+
+from inheritance_calculator_core.models.inheritance import (
+    HeritageRank,
+    InheritanceResult,
+)
 from inheritance_calculator_core.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -47,7 +51,9 @@ class AsciiTreeGenerator:
             spouse_heirs = result.get_heirs_by_rank(HeritageRank.SPOUSE)
             for heir in spouse_heirs:
                 share_text = f"{heir.share} ({heir.share_percentage:.1f}%)"
-                lines.append(f"        💑 配偶者: {heir.person.name} - {share_text}".center(60))
+                lines.append(
+                    f"        💑 配偶者: {heir.person.name} - {share_text}".center(60)
+                )
             lines.append("")
 
         # 第1順位（子）
@@ -58,7 +64,11 @@ class AsciiTreeGenerator:
                 share_text = f"{heir.share} ({heir.share_percentage:.1f}%)"
                 # 代襲相続の判定
                 is_substitute = "(代襲)" if heir.is_substitution else ""
-                lines.append(f"    👶 {heir.person.name} {is_substitute} - {share_text}".center(60))
+                lines.append(
+                    f"    👶 {heir.person.name} {is_substitute} - {share_text}".center(
+                        60
+                    )
+                )
             lines.append("")
 
         # 第2順位（直系尊属）
@@ -78,7 +88,11 @@ class AsciiTreeGenerator:
                 share_text = f"{heir.share} ({heir.share_percentage:.1f}%)"
                 # 代襲相続の判定
                 is_substitute = "(代襲)" if heir.is_substitution else ""
-                lines.append(f"    👫 {heir.person.name} {is_substitute} - {share_text}".center(60))
+                lines.append(
+                    f"    👫 {heir.person.name} {is_substitute} - {share_text}".center(
+                        60
+                    )
+                )
             lines.append("")
 
         lines.append("=" * 60)
@@ -128,7 +142,9 @@ class AsciiTreeGenerator:
                 connector = "└──" if i == len(child_heirs) - 1 else "├──"
                 share_text = f"{heir.share} ({heir.share_percentage:.1f}%)"
                 suffix = " [代襲相続]" if heir.is_substitution else ""
-                person_line = f"   {connector} 👶 {heir.person.name}: {share_text}{suffix}"
+                person_line = (
+                    f"   {connector} 👶 {heir.person.name}: {share_text}{suffix}"
+                )
                 lines.append(person_line.center(80))
             lines.append("")
 
@@ -151,7 +167,9 @@ class AsciiTreeGenerator:
                 connector = "└──" if i == len(sibling_heirs) - 1 else "├──"
                 share_text = f"{heir.share} ({heir.share_percentage:.1f}%)"
                 suffix = " [代襲相続]" if heir.is_substitution else ""
-                person_line = f"   {connector} 👫 {heir.person.name}: {share_text}{suffix}"
+                person_line = (
+                    f"   {connector} 👫 {heir.person.name}: {share_text}{suffix}"
+                )
                 lines.append(person_line.center(80))
             lines.append("")
 
@@ -163,7 +181,7 @@ class AsciiTreeGenerator:
 
         return "\n".join(lines)
 
-    def check_complexity(self, result: InheritanceResult) -> Dict[str, any]:
+    def check_complexity(self, result: InheritanceResult) -> dict[str, Any]:
         """家系図の複雑さをチェック
 
         Args:
@@ -184,11 +202,13 @@ class AsciiTreeGenerator:
             recommendation = "詳細版での表示を推奨"
         else:
             complexity = "complex"
-            recommendation = "Graphviz形式での出力を推奨（ASCIIアートでは見にくい可能性）"
+            recommendation = (
+                "Graphviz形式での出力を推奨（ASCIIアートでは見にくい可能性）"
+            )
 
         return {
             "complexity": complexity,
             "total_heirs": total_heirs,
             "has_substitution": has_substitution,
-            "recommendation": recommendation
+            "recommendation": recommendation,
         }

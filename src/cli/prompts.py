@@ -3,16 +3,17 @@
 改善されたユーザー入力プロンプト機能を提供します。
 保留（ペンディング）機能、入力確認、修正機能を含みます。
 """
-from typing import Optional, List, Dict, Any, Callable
+from collections.abc import Callable
 from datetime import date, datetime
+from typing import Any
+
+from inheritance_calculator_core.utils.logger import get_logger
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
-from pydantic import ValidationError
+from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 from src.cli.session import Session, SessionManager
-from inheritance_calculator_core.utils.logger import get_logger
 
 logger = get_logger(__name__)
 console = Console()
@@ -24,25 +25,25 @@ class InteractivePrompt:
     # 保留キーワード
     PENDING_KEYWORDS = ["pending", "保留", "未確定", "skip"]
 
-    def __init__(self, session_manager: Optional[SessionManager] = None):
+    def __init__(self, session_manager: SessionManager | None = None):
         """初期化
 
         Args:
             session_manager: セッション管理マネージャー
         """
         self.session_manager = session_manager or SessionManager()
-        self.session: Optional[Session] = None
-        self.input_data: Dict[str, Any] = {}
+        self.session: Session | None = None
+        self.input_data: dict[str, Any] = {}
 
     def prompt_text(
         self,
         prompt: str,
         key: str,
-        default: Optional[str] = None,
+        default: str | None = None,
         optional: bool = False,
         allow_pending: bool = True,
-        validator: Optional[Callable[[str], bool]] = None
-    ) -> Optional[str]:
+        validator: Callable[[str], bool] | None = None,
+    ) -> str | None:
         """テキスト入力プロンプト
 
         Args:
@@ -82,7 +83,9 @@ class InteractivePrompt:
                 # バリデーション
                 if validator and value:
                     if not validator(value):
-                        console.print("[red]入力値が無効です。もう一度入力してください。[/red]")
+                        console.print(
+                            "[red]入力値が無効です。もう一度入力してください。[/red]"
+                        )
                         continue
 
                 return value
@@ -91,16 +94,14 @@ class InteractivePrompt:
                 console.print("\n[yellow]入力を中断しました[/yellow]")
                 if self.session and Confirm.ask("セッションを保存しますか？"):
                     self.session_manager.save_session(self.session)
-                    console.print(f"[green]セッション保存: {self.session.session_id}[/green]")
+                    console.print(
+                        f"[green]セッション保存: {self.session.session_id}[/green]"
+                    )
                 raise
 
     def prompt_date(
-        self,
-        prompt: str,
-        key: str,
-        optional: bool = False,
-        allow_pending: bool = True
-    ) -> Optional[date]:
+        self, prompt: str, key: str, optional: bool = False, allow_pending: bool = True
+    ) -> date | None:
         """日付入力プロンプト
 
         Args:
@@ -120,7 +121,10 @@ class InteractivePrompt:
                 datetime.strptime(value, "%Y-%m-%d")
                 return True
             except ValueError:
-                console.print("[red]日付形式が正しくありません。YYYY-MM-DD形式で入力してください（例: 2025-06-15）[/red]")
+                console.print(
+                    "[red]日付形式が正しくありません。YYYY-MM-DD形式で"
+                    "入力してください（例: 2025-06-15）[/red]"
+                )
                 return False
 
         date_str = self.prompt_text(
@@ -128,7 +132,7 @@ class InteractivePrompt:
             key,
             optional=optional,
             allow_pending=allow_pending,
-            validator=date_validator
+            validator=date_validator,
         )
 
         if date_str is None:
@@ -140,12 +144,8 @@ class InteractivePrompt:
             return None
 
     def prompt_bool(
-        self,
-        prompt: str,
-        key: str,
-        default: bool = False,
-        allow_pending: bool = True
-    ) -> Optional[bool]:
+        self, prompt: str, key: str, default: bool = False, allow_pending: bool = True
+    ) -> bool | None:
         """Yes/No入力プロンプト
 
         Args:
@@ -164,8 +164,18 @@ class InteractivePrompt:
             try:
                 value = Prompt.ask(
                     prompt,
-                    choices=["y", "n", "yes", "no", "はい", "いいえ", "pending", "保留", "未確定"],
-                    default="y" if default else "n"
+                    choices=[
+                        "y",
+                        "n",
+                        "yes",
+                        "no",
+                        "はい",
+                        "いいえ",
+                        "pending",
+                        "保留",
+                        "未確定",
+                    ],
+                    default="y" if default else "n",
                 )
 
                 # 保留チェック
@@ -188,12 +198,12 @@ class InteractivePrompt:
         self,
         prompt: str,
         key: str,
-        default: Optional[int] = None,
+        default: int | None = None,
         optional: bool = False,
         allow_pending: bool = True,
-        min_value: Optional[int] = None,
-        max_value: Optional[int] = None
-    ) -> Optional[int]:
+        min_value: int | None = None,
+        max_value: int | None = None,
+    ) -> int | None:
         """整数入力プロンプト
 
         Args:
@@ -208,6 +218,7 @@ class InteractivePrompt:
         Returns:
             int: 入力された値（保留の場合はNone）
         """
+
         def int_validator(value: str) -> bool:
             """整数バリデーター"""
             try:
@@ -229,7 +240,7 @@ class InteractivePrompt:
             default=str(default) if default is not None else None,
             optional=optional,
             allow_pending=allow_pending,
-            validator=int_validator
+            validator=int_validator,
         )
 
         if value_str is None:
@@ -240,7 +251,7 @@ class InteractivePrompt:
         except ValueError:
             return None
 
-    def confirm_inputs(self, data: Dict[str, Any]) -> bool:
+    def confirm_inputs(self, data: dict[str, Any]) -> bool:
         """入力内容の確認と修正
 
         Args:
@@ -260,7 +271,7 @@ class InteractivePrompt:
             for idx, (key, value) in enumerate(items, 1):
                 # 保留項目のハイライト
                 if self.session and key in self.session.pending_items:
-                    value_str = f"[yellow]未確定（保留）[/yellow]"
+                    value_str = "[yellow]未確定（保留）[/yellow]"
                 elif value is None:
                     value_str = "[dim]（未入力）[/dim]"
                 else:
@@ -274,8 +285,7 @@ class InteractivePrompt:
 
             # 確認プロンプト
             choice = Prompt.ask(
-                "修正する項目の番号を入力してください（Enterで確定）",
-                default=""
+                "修正する項目の番号を入力してください（Enterで確定）", default=""
             )
 
             if not choice:
@@ -301,10 +311,9 @@ class InteractivePrompt:
         pending = self.session_manager.get_pending_items(self.session)
 
         console.print()
-        console.print(Panel.fit(
-            "[yellow]保留項目があります[/yellow]",
-            border_style="yellow"
-        ))
+        console.print(
+            Panel.fit("[yellow]保留項目があります[/yellow]", border_style="yellow")
+        )
 
         table = Table(show_header=True)
         table.add_column("項目", style="yellow")
@@ -329,7 +338,7 @@ class InteractivePrompt:
 
         return Confirm.ask("保留項目を更新しますか？", default=True)
 
-    def create_session(self, data: Optional[Dict[str, Any]] = None) -> Session:
+    def create_session(self, data: dict[str, Any] | None = None) -> Session:
         """新しいセッションを作成
 
         Args:
@@ -342,7 +351,7 @@ class InteractivePrompt:
         logger.info(f"新しいセッション作成: {self.session.session_id}")
         return self.session
 
-    def load_session(self, session_id: str) -> Optional[Session]:
+    def load_session(self, session_id: str) -> Session | None:
         """セッションを読み込み
 
         Args:
