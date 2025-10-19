@@ -10,6 +10,7 @@ from typing import Any
 from inheritance_calculator_core.models.inheritance import InheritanceResult
 from inheritance_calculator_core.models.person import Person
 from inheritance_calculator_core.models.relationship import BloodType
+from inheritance_calculator_core.models.value_objects import PersonID
 from inheritance_calculator_core.services.inheritance_calculator import (
     InheritanceCalculator,
 )
@@ -43,7 +44,7 @@ def handle_post_calculation(
     renounced: list[Person] | None = None,
     disqualified: list[Person] | None = None,
     disinherited: list[Person] | None = None,
-    sibling_blood_types: dict[str, BloodType] | None = None,
+    sibling_blood_types: dict[PersonID, BloodType] | None = None,
 ) -> None:
     """相続計算後の処理（連絡先収集、レポート生成、Neo4j保存）
 
@@ -238,7 +239,7 @@ def calculate_from_file(
             parents.append(parent)
 
         siblings = []
-        sibling_blood_types = {}
+        sibling_blood_types: dict[PersonID, BloodType] = {}
         for sibling_data in data.get("siblings", []):
             sibling = Person(
                 name=sibling_data["name"],
@@ -254,7 +255,7 @@ def calculate_from_file(
 
             # 血縁タイプの設定
             blood_type_str = sibling_data.get("blood_type", "full")
-            sibling_blood_types[str(sibling.id)] = (
+            sibling_blood_types[sibling.id] = (
                 BloodType.FULL if blood_type_str == "full" else BloodType.HALF
             )
 
@@ -479,7 +480,7 @@ def save_to_neo4j(
     renounced: list[Person],
     disqualified: list[Person],
     disinherited: list[Person],
-    sibling_blood_types: dict[str, BloodType],
+    sibling_blood_types: dict[PersonID, BloodType],
     result: InheritanceResult,
 ) -> None:
     """相続ケースをNeo4jに保存
@@ -746,7 +747,7 @@ def tree_command(args: Namespace) -> int:
                 parents.append(parent)
 
             siblings = []
-            sibling_blood_types = {}
+            sibling_blood_types_json: dict[PersonID, BloodType] = {}
             for sibling_data in data.get("siblings", []):
                 sibling = Person(
                     name=sibling_data["name"],
@@ -760,7 +761,7 @@ def tree_command(args: Namespace) -> int:
                 )
                 siblings.append(sibling)
                 blood_type_str = sibling_data.get("blood_type", "full")
-                sibling_blood_types[str(sibling.id)] = (
+                sibling_blood_types_json[sibling.id] = (
                     BloodType.FULL if blood_type_str == "full" else BloodType.HALF
                 )
 
@@ -774,6 +775,8 @@ def tree_command(args: Namespace) -> int:
 
         # 相続計算の実行
         calculator = InheritanceCalculator()
+        # CSVとJSONで異なる変数名を使用しているため統合
+        final_sibling_blood_types = sibling_blood_types_json if 'sibling_blood_types_json' in locals() else sibling_blood_types
         result = calculator.calculate(
             decedent=decedent,
             spouses=spouses,
@@ -781,7 +784,7 @@ def tree_command(args: Namespace) -> int:
             parents=parents,
             siblings=siblings,
             renounced=renounced if renounced else None,
-            sibling_blood_types=sibling_blood_types if sibling_blood_types else None,
+            sibling_blood_types=final_sibling_blood_types if final_sibling_blood_types else None,
         )
 
         # 家系図の生成

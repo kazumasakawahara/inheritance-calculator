@@ -9,6 +9,7 @@ from pathlib import Path
 
 from inheritance_calculator_core.models.person import Person
 from inheritance_calculator_core.models.relationship import BloodType
+from inheritance_calculator_core.models.value_objects import PersonID
 from inheritance_calculator_core.utils.exceptions import ValidationError
 
 
@@ -84,7 +85,7 @@ class CSVParser:
         list[Person],
         list[Person],
         list[Person],
-        dict[str, BloodType],
+        dict[PersonID, BloodType],
     ]:
         """CSVファイルから相続情報を読み込み
 
@@ -155,7 +156,7 @@ class CSVParser:
         parents: list[Person] = []
         siblings: list[Person] = []
         renounced: list[Person] = []
-        sibling_blood_types: dict[str, BloodType] = {}
+        sibling_blood_types: dict[PersonID, BloodType] = {}
 
         for row in rows:
             if row.role == "decedent":
@@ -180,16 +181,16 @@ class CSVParser:
                 # 血縁タイプの設定
                 if row.blood_type:
                     if row.blood_type == "full":
-                        sibling_blood_types[str(person.id)] = BloodType.FULL
+                        sibling_blood_types[person.id] = BloodType.FULL
                     elif row.blood_type == "half":
-                        sibling_blood_types[str(person.id)] = BloodType.HALF
+                        sibling_blood_types[person.id] = BloodType.HALF
                     else:
                         raise ValidationError(
                             f"無効な血縁タイプです（{row.name}）: {row.blood_type}"
                         )
                 else:
                     # デフォルトは全血
-                    sibling_blood_types[str(person.id)] = BloodType.FULL
+                    sibling_blood_types[person.id] = BloodType.FULL
             else:
                 raise ValidationError(f"無効な役割です: {row.role}")
 

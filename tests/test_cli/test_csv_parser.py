@@ -109,8 +109,8 @@ sibling,田中三郎,はい,1955-05-20,,half,いいえ
         assert len(siblings) == 2
 
         # 血縁タイプの確認
-        assert blood_types[str(siblings[0].id)] == BloodType.FULL
-        assert blood_types[str(siblings[1].id)] == BloodType.HALF
+        assert blood_types[siblings[0].id] == BloodType.FULL
+        assert blood_types[siblings[1].id] == BloodType.HALF
 
     def test_parse_csv_file_with_renounced(self, tmp_path: Path) -> None:
         """相続放棄を含むCSV"""

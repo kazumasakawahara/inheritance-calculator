@@ -5,7 +5,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/kazumasakawahara/inheritance-calculator/actions/workflows/test.yml/badge.svg)](https://github.com/kazumasakawahara/inheritance-calculator/actions/workflows/test.yml)
-[![Test Coverage: 68%](https://img.shields.io/badge/coverage-68%25-green.svg)](https://github.com/kazumasakawahara/inheritance-calculator)
+[![Test Coverage: 67%](https://img.shields.io/badge/coverage-67%25-green.svg)](https://github.com/kazumasakawahara/inheritance-calculator)
 
 > **Note**: このパッケージはCLIアプリケーションです。コアライブラリは [inheritance-calculator-core](https://github.com/kazumasakawahara/inheritance-calculator-core) を参照してください。
 
@@ -390,12 +390,13 @@ MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してくださ�
 ---
 
 **バージョン**: 1.1.0
-**開発状況**: Phase 7 (Neo4jデータ永続化機能) 完了
-**最終更新**: 2025年10月3日
+**依存**: inheritance-calculator-core v0.9.0
+**最終更新**: 2025年10月19日
 **開発**: Claude Code AI Assistant
 
-### 新機能 (v1.1.0)
-- ✅ Neo4jグラフデータベース統合
-- ✅ 相続ケースのグラフ構造での永続化
-- ✅ Cypherクエリによる高度な相続人検索
-- ✅ `--save-to-neo4j` オプションでCLIから直接保存可能
+### 新機能・変更 (v1.1.0)
+- ✅ inheritance-calculator-core v0.9.0への対応
+- ✅ PersonID型による型安全性の向上
+- ✅ PyPI公開版のコアライブラリを使用
+- ✅ テストカバレッジ: 67% (199 passed)
+- ✅ mypy --strict対応
